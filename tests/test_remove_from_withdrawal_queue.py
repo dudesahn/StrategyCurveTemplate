@@ -15,10 +15,8 @@ def test_remove_from_withdrawal_queue(
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    # simulate nine days of earnings to make sure we hit at least one epoch of rewards
-    chain.sleep(86400 * 9)
-    chain.mine(1)
-    chain.sleep(1)
+    # simulate 1 day of earnings
+    chain.sleep(86400)
     strategy.harvest({"from": gov})
     chain.sleep(1)
     before = strategy.estimatedTotalAssets()

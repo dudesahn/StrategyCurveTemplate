@@ -35,8 +35,9 @@ def test_migration(
     print("\nShould we harvest? Should be False.", tx)
     assert tx == False
 
-    # sleep for a week to build up some rewards
-    chain.sleep(86400 * 7)
+    # simulate 1 day of earnings
+    chain.sleep(86400)
+    chain.mine(1)
 
     # migrate our old strategy
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
