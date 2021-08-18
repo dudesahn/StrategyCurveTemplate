@@ -95,7 +95,7 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
 
         // these are our approvals and path specific to this contract
         eurt.safeApprove(address(curve), type(uint256).max);
-        weth.safeApprove(uniV3, type(uint256).max);
+        weth.safeApprove(uniswapv3, type(uint256).max);
 
         crvPath = new address[](2);
         crvPath[0] = address(crv);
