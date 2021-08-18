@@ -17,7 +17,7 @@ import {
     StrategyParams
 } from "@yearnvaults/contracts/BaseStrategy.sol";
 
-interface IUniswapv3 {
+interface IUniV3 {
     struct ExactInputParams {
         bytes path;
         address recipient;
@@ -36,7 +36,7 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
-    
+
     /* ========== STATE VARIABLES ========== */
 
     // these stay constant for each strategy
@@ -45,11 +45,11 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
         ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152); // Yearn's Updated v4 StrategyProxy
     address public constant voter =
         address(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Yearn's veCRV voter
-        
+
     // state variables used for swapping
     address public constant sushiswap =
         address(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // default to sushiswap, more CRV liquidity there
-    address public constant uniV3 =
+    address public constant uniswapv3 =
         address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     address[] public crvPath;
     uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
@@ -58,7 +58,7 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
         ICrvV3(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-        
+
     // these variables will change from strategy to strategy
     address public constant gauge =
         address(0xe8060Ad8971450E624d5289A10017dD30F5dA85F); // Curve EURt Gauge contract, tokenized, held by Yearn's voter
@@ -66,7 +66,7 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
         ICurveFi(address(0xFD5dB7463a3aB53fD211b4af195c5BCCC1A03890)); // Curve EURt Pool
 
     uint256 public optimal; // this is our target deposit token
-    
+
     // here are any additional tokens used in the swap path
     IERC20 public constant usdt =
         IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
@@ -142,7 +142,7 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
 
                 // convert our WETH to EURt, but don't want to swap dust
                 uint256 _wethBalance = IERC20(weth).balanceOf(address(this));
-                if (_wethBalance > 0) _sell_v3(_wethBalance);
+                if (_wethBalance > 0) _sellWethForEurt(_wethBalance);
 
                 // deposit our EURt to Curve
                 uint256 _eurtBalance = eurt.balanceOf(address(this));
@@ -268,43 +268,13 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
         override
         returns (bool)
     {
-        StrategyParams memory params = vault.strategies(address(this));
-
-        // Should not trigger if Strategy is not activated
-        if (params.activation == 0) return false;
-
-        // Should not trigger if we haven't waited long enough since previous harvest
-        if (block.timestamp.sub(params.lastReport) < minReportDelay)
-            return false;
-
-        // Should trigger if hasn't been called in a while
-        if (block.timestamp.sub(params.lastReport) >= maxReportDelay)
-            return true;
-
-        // If some amount is owed, pay it back
-        // NOTE: Since debt is based on deposits, it makes sense to guard against large
-        //       changes to the value from triggering a harvest directly through user
-        //       behavior. This should ensure reasonable resistance to manipulation
-        //       from user-initiated withdrawals as the outstanding debt fluctuates.
-        uint256 outstanding = vault.debtOutstanding();
-        if (outstanding > debtThreshold) return true;
-
-        // Check for profits and losses
-        uint256 total = estimatedTotalAssets();
-        // Trigger if we have a loss to report
-        if (total.add(debtThreshold) < params.totalDebt) return true;
-
-        // Trigger if we haven't harvested in the last week
-        uint256 week = 86400 * 7;
-        if (block.timestamp.sub(params.lastReport) > week) {
-            return true;
-        }
+        return super.harvestTrigger(callCostinEth);
     }
 
     // Sells our USDT for EURt
-    function _sell_v3(uint256 _amount) internal {
-        IUniswapv3(uniV3).exactInput(
-            IUniswapv3.ExactInputParams(
+    function _sellWethForEurt(uint256 _amount) internal {
+        IUniV3(uniswapv3).exactInput(
+            IUniV3.ExactInputParams(
                 abi.encodePacked(
                     address(weth),
                     uint24(500),
@@ -315,7 +285,7 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
                 address(this),
                 now,
                 _amount,
-                uint256(0)
+                uint256(1)
             )
         );
     }
