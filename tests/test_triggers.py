@@ -21,27 +21,16 @@ def test_triggers(
     chain.sleep(86400)
     chain.mine(1)
 
-    # harvest should trigger false
+    # harvest should trigger false; hasn't been long enough
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be False.", tx)
     assert tx == False
 
-    # simulate eight days of earnings
-    chain.sleep(86400 * 8)
+    # simulate 10 days of earnings
+    chain.sleep(86400 * 10)
     chain.mine(1)
 
     # harvest should trigger true
-    tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be true.", tx)
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    assert tx == True
-
-    # simulate a day of waiting for share price to bump back up
-    chain.sleep(86400 * 9)
-    chain.mine(1)
-    strategy.setMaxReportDelay(1e18, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be true.", tx)
     assert tx == True

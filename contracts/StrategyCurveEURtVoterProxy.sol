@@ -61,6 +61,7 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
 
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
+    // note that some strategies will require the "optimal" state variable here as well if we choose which token to sell into before depositing
 
     address public constant gauge =
         address(0xe8060Ad8971450E624d5289A10017dD30F5dA85F); // Curve EURt Gauge contract, tokenized, held by Yearn's voter

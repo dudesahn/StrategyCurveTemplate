@@ -29,8 +29,8 @@ def test_simple_harvest(
     # try and include custom logic here to check that funds are in the staking contract (if needed)
     assert gauge.balanceOf(voter) > stakingBeforeHarvest
 
-    # simulate 7 days of earnings
-    chain.sleep(86400 * 7)
+    # simulate 1 day of earnings
+    chain.sleep(86400)
     chain.mine(1)
 
     # harvest, store new asset amount
@@ -40,13 +40,13 @@ def test_simple_harvest(
     new_assets = vault.totalAssets()
     # confirm we made money, or at least that we have about the same
     assert new_assets >= old_assets or math.isclose(new_assets, old_assets, abs_tol=5)
-    print("\nAssets after 7 days: ", new_assets / 1e18)
+    print("\nAssets after 1 day: ", new_assets / 1e18)
 
     # Display estimated APR
     print(
         "\nEstimated EURt APR: ",
         "{:.2%}".format(
-            ((new_assets - old_assets) * (365 / 7)) / (strategy.estimatedTotalAssets())
+            ((new_assets - old_assets) * (365)) / (strategy.estimatedTotalAssets())
         ),
     )
 

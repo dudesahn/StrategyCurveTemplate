@@ -22,14 +22,15 @@ def test_change_debt(
     # debtRatio is in BPS (aka, max is 10,000, which represents 100%), and is a fraction of the funds that can be in the strategy
     currentDebt = 10000
     vault.updateStrategyDebtRatio(strategy, currentDebt / 2, {"from": gov})
-    chain.sleep(1)
+    # sleep for a day to make sure we are swapping enough (Uni v3 combined with only 6 decimals)
+    chain.sleep(86400)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     assert strategy.estimatedTotalAssets() <= startingStrategy
 
-    # simulate nine days of earnings
-    chain.sleep(86400 * 9)
+    # simulate one day of earnings
+    chain.sleep(86400)
     chain.mine(1)
 
     # set DebtRatio back to 100%

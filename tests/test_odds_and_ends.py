@@ -240,13 +240,13 @@ def test_odds_and_ends_liquidatePosition(
     new_assets = vault.totalAssets()
     # confirm we made money, or at least that we have about the same
     assert new_assets >= old_assets or math.isclose(new_assets, old_assets, abs_tol=5)
-    print("\nAssets after 7 days: ", new_assets / 1e18)
+    print("\nAssets after 1 day: ", new_assets / 1e18)
 
     # Display estimated APR
     print(
-        "\nEstimated CVX APR: ",
+        "\nEstimated EURT APR: ",
         "{:.2%}".format(
-            ((new_assets - old_assets) * (365 / 7)) / (strategy.estimatedTotalAssets())
+            ((new_assets - old_assets) * (365)) / (strategy.estimatedTotalAssets())
         ),
     )
 
