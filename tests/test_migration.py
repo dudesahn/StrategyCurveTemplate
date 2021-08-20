@@ -5,7 +5,7 @@ import math
 
 
 def test_migration(
-    StrategyCurveEURtVoterProxy,
+    StrategyCurveEURt,
     gov,
     token,
     vault,
@@ -17,17 +17,18 @@ def test_migration(
     proxy,
     strategist_ms,
     healthCheck,
+    amount,
 ):
 
     ## deposit to the vault after approving
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
-    vault.deposit(20e18, {"from": whale})
+    vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # deploy our new strategy
-    new_strategy = strategist.deploy(StrategyCurveEURtVoterProxy, vault)
+    new_strategy = strategist.deploy(StrategyCurveEURt, vault)
     total_old = strategy.estimatedTotalAssets()
 
     # can we harvest an unactivated strategy? should be no

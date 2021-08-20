@@ -22,6 +22,13 @@ def whale(accounts):
     yield whale
 
 
+# this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
+@pytest.fixture(scope="module")
+def amount():
+    amount = 20e18
+    yield amount
+
+
 # all contracts below should be able to stay static based on the pid
 @pytest.fixture(scope="module")
 def booster():  # this is the deposit contract
@@ -176,7 +183,7 @@ def vault(pm, gov, rewards, guardian, management, token, chain):
 # replace the first value with the name of your strategy
 @pytest.fixture(scope="function")
 def strategy(
-    StrategyCurveEURtVoterProxy,
+    StrategyCurveEURt,
     strategist,
     keeper,
     vault,
@@ -188,7 +195,7 @@ def strategy(
     proxy,
 ):
     # parameters for this are: strategy, vault, max deposit, minTimePerInvest, slippage protection (10000 = 100% slippage allowed),
-    strategy = strategist.deploy(StrategyCurveEURtVoterProxy, vault)
+    strategy = strategist.deploy(StrategyCurveEURt, vault)
     strategy.setKeeper(keeper, {"from": gov})
     # set our management fee to zero so it doesn't mess with our profit checking
     vault.setManagementFee(0, {"from": gov})
