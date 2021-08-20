@@ -168,19 +168,6 @@ contract StrategyCurveEURt is BaseStrategy {
             }
         }
 
-        // serious loss should never happen, but if it does (for instance, if Curve is hacked), let's record it accurately
-        uint256 assets = estimatedTotalAssets();
-        uint256 debt = vault.strategies(address(this)).totalDebt;
-
-        // if assets are greater than debt, things are working great!
-        if (assets > debt) {
-            _profit = assets.sub(debt);
-        }
-        // if assets are less than debt, we are in trouble
-        else {
-            _loss = debt.sub(assets);
-        }
-
         // debtOustanding will only be > 0 in the event of revoking or lowering debtRatio of a strategy
         if (_debtOutstanding > 0) {
             if (_stakedBalance() > 0) {
@@ -193,16 +180,19 @@ contract StrategyCurveEURt is BaseStrategy {
             }
             uint256 withdrawnBal = _balanceOfWant();
             _debtPayment = Math.min(_debtOutstanding, withdrawnBal);
-            if (_debtPayment < _debtOutstanding) {
-                _loss = _debtOutstanding.sub(_debtPayment);
-                if (_profit > _loss) {
-                    _profit = _profit.sub(_loss);
-                    _loss = 0;
-                } else {
-                    _loss = _loss.sub(_profit);
-                    _profit = 0;
-                }
-            }
+        }
+
+        // serious loss should never happen, but if it does (for instance, if Curve is hacked), let's record it accurately
+        uint256 assets = estimatedTotalAssets();
+        uint256 debt = vault.strategies(address(this)).totalDebt;
+
+        // if assets are greater than debt, things are working great!
+        if (assets > debt) {
+            _profit = assets.sub(debt);
+        }
+        // if assets are less than debt, we are in trouble
+        else {
+            _loss = debt.sub(assets);
         }
     }
 
@@ -300,16 +290,6 @@ contract StrategyCurveEURt is BaseStrategy {
     }
 
     /* ========== KEEP3RS ========== */
-
-    // our main trigger is regarding our DCA since there is low liquidity for $XYZ
-    function harvestTrigger(uint256 callCostinEth)
-        public
-        view
-        override
-        returns (bool)
-    {
-        return super.harvestTrigger(callCostinEth);
-    }
 
     // convert our keeper's eth cost into want
     function ethToWant(uint256 _ethAmount)
