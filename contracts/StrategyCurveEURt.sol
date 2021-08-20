@@ -32,7 +32,15 @@ interface IUniV3 {
         returns (uint256 amountOut);
 }
 
-contract StrategyCurveEURtVoterProxy is BaseStrategy {
+interface IOracle {
+    function ethToAsset(
+        uint256 _ethAmountIn,
+        address _tokenOut,
+        uint32 _twapPeriod
+    ) external view returns (uint256 amountOut);
+}
+
+contract StrategyCurveEURt is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -58,7 +66,6 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    string internal stratName;
 
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
@@ -68,6 +75,8 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
         address(0xe8060Ad8971450E624d5289A10017dD30F5dA85F); // Curve EURt Gauge contract, tokenized, held by Yearn's voter
     ICurveFi public constant curve =
         ICurveFi(address(0xFD5dB7463a3aB53fD211b4af195c5BCCC1A03890)); // Curve EURt Pool
+    IOracle public oracle = IOracle(0x0F1f5A87f99f0918e6C81F16E59F3518698221Ff); // this is only needed for strats that use uniV3 for swaps
+    string internal stratName = "StrategyCurveEURt"; // set our strategy name here
 
     // here are any additional tokens used in the swap path
     IERC20 public constant usdt =
