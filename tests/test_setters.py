@@ -24,6 +24,7 @@ def test_setters(
     strategy.setRewards(gov, {"from": strategist})
     strategy.setProxy(proxy, {"from": gov})
     strategy.setKeepCRV(10, {"from": gov})
+    strategy.setName("Poop", {"from": gov})
 
     strategy.setStrategist(strategist, {"from": gov})
     name = strategy.name()
