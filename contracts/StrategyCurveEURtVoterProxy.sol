@@ -58,6 +58,7 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    string internal stratName;
 
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
@@ -106,7 +107,7 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
     /* ========== VIEWS ========== */
 
     function name() external view override returns (string memory) {
-        return "StrategyCurveEURtVoterProxy";
+        return stratName;
     }
 
     function _stakedBalance() internal view returns (uint256) {
@@ -301,14 +302,20 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
         return super.harvestTrigger(callCostinEth);
     }
 
-    // since we can't pull claimable crv from gauge on chain, no need for this
-    function ethToWant(uint256 _amtInWei)
+    // convert our keeper's eth cost into want
+    function ethToWant(uint256 _ethAmount)
         public
         view
         override
         returns (uint256)
     {
-        return _amtInWei;
+        uint256 callCostInWant;
+        if (_ethAmount > 0) {
+            uint256 callCostInEur =
+                oracle.ethToAsset(_ethAmount, address(eurt), 1800);
+            callCostInWant = curve.calc_token_amount([callCostInEur, 0], true);
+        }
+        return callCostInWant;
     }
 
     /* ========== SETTERS ========== */
@@ -323,5 +330,10 @@ contract StrategyCurveEURtVoterProxy is BaseStrategy {
     // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
     function setKeepCRV(uint256 _keepCRV) external onlyAuthorized {
         keepCRV = _keepCRV;
+    }
+
+    // This allows us to change the name of a strategy
+    function setName(string calldata _stratName) external onlyAuthorized {
+        stratName = _stratName;
     }
 }
