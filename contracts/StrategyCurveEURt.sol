@@ -339,11 +339,6 @@ contract StrategyCurveEURt is BaseStrategy {
         stratName = _stratName;
     }
 
-    // This allows us to change the name of a strategy
-    function setName(string calldata _stratName) external onlyAuthorized {
-        stratName = _stratName;
-    }
-
     // This allows us to manually harvest with our keeper as needed
     function setManualHarvest(bool _manualHarvestNow) external onlyAuthorized {
         manualHarvestNow = _manualHarvestNow;
