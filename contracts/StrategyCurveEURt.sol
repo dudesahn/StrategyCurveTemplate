@@ -66,6 +66,7 @@ contract StrategyCurveEURt is BaseStrategy {
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    bool internal manualHarvestNow = false; // only set this to true when we want to trigger our keepers to harvest for us
 
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
@@ -194,6 +195,9 @@ contract StrategyCurveEURt is BaseStrategy {
         else {
             _loss = debt.sub(assets);
         }
+
+        // we're done harvesting, so reset our trigger if we used it
+        if (manualHarvestNow) manualHarvestNow = false;
     }
 
     // Sells our harvested CRV into the selected output.
@@ -291,6 +295,15 @@ contract StrategyCurveEURt is BaseStrategy {
 
     /* ========== KEEP3RS ========== */
 
+    function harvestTrigger(uint256 callCostinEth)
+        public
+        view
+        override
+        returns (bool)
+    {
+        return super.harvestTrigger(callCostinEth) || manualHarvestNow;
+    }
+
     // convert our keeper's eth cost into want
     function ethToWant(uint256 _ethAmount)
         public
@@ -324,5 +337,15 @@ contract StrategyCurveEURt is BaseStrategy {
     // This allows us to change the name of a strategy
     function setName(string calldata _stratName) external onlyAuthorized {
         stratName = _stratName;
+    }
+
+    // This allows us to change the name of a strategy
+    function setName(string calldata _stratName) external onlyAuthorized {
+        stratName = _stratName;
+    }
+
+    // This allows us to manually harvest with our keeper as needed
+    function setManualHarvest(bool _manualHarvestNow) external onlyAuthorized {
+        manualHarvestNow = _manualHarvestNow;
     }
 }
