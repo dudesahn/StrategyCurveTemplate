@@ -68,7 +68,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    bool internal manualHarvestNow = false; // only set this to true when we want to trigger our keepers to harvest for us
+    bool internal manualHarvestNow = false; // only set this to true externally when we want to trigger our keepers to harvest for us
     string internal stratName; // set our strategy name here
 
     /* ========== CONSTRUCTOR ========== */
