@@ -190,7 +190,13 @@ abstract contract StrategyCurveBase is BaseStrategy {
         override
         returns (bool)
     {
-        return super.harvestTrigger(callCostinEth) || manualHarvestNow;
+        // trigger if we want to manually harvest
+        if (manualHarvestNow) return true;
+
+        // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
+        if (!isActive()) return false;
+
+        return super.harvestTrigger(callCostinEth);
     }
 
     /* ========== SETTERS ========== */

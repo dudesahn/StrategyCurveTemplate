@@ -359,7 +359,7 @@ def test_odds_and_ends_liquidate_rekt(
     vault.withdraw(10e18, whale, 10000, {"from": whale})
 
 
-def test_weird_reverts(
+def test_weird_reverts_and_trigger(
     gov,
     token,
     vault,
@@ -388,3 +388,36 @@ def test_weird_reverts(
     # can't do health check with a non-health check contract
     with brownie.reverts():
         strategy.withdraw(1e18, {"from": gov})
+
+
+# this one makes sure our harvestTrigger doesn't trigger when we don't have assets in the strategy
+def test_odds_and_ends_inactive_strat(
+    gov,
+    token,
+    vault,
+    strategist,
+    whale,
+    strategy,
+    chain,
+    strategist_ms,
+    voter,
+    cvxDeposit,
+    amount,
+):
+    ## deposit to the vault after approving
+    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    vault.deposit(amount, {"from": whale})
+    chain.sleep(1)
+    strategy.harvest({"from": gov})
+    chain.sleep(1)
+
+    ## move our funds out of the strategy
+    vault.updateStrategyDebtRatio(strategy, 0, {"from": gov})
+    # sleep for a day since univ3 is weird
+    chain.sleep(86400)
+    strategy.harvest({"from": gov})
+
+    # we shouldn't harvest empty strategies
+    tx = strategy.harvestTrigger(0, {"from": gov})
+    print("\nShould we harvest? Should be false.", tx)
+    assert tx == False
