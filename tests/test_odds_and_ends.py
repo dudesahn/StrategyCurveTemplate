@@ -52,7 +52,9 @@ def test_odds_and_ends(
 
     # we can try to migrate too, lol
     # deploy our new strategy
-    new_strategy = strategist.deploy(StrategyCurveEURt, vault, pool, gauge, strategy_name)
+    new_strategy = strategist.deploy(
+        StrategyCurveEURt, vault, pool, gauge, strategy_name
+    )
     total_old = strategy.estimatedTotalAssets()
 
     # migrate our old strategy
@@ -162,7 +164,9 @@ def test_odds_and_ends_migration(
     chain.sleep(1)
 
     # deploy our new strategy
-    new_strategy = strategist.deploy(StrategyCurveEURt, vault, pool, gauge, strategy_name)
+    new_strategy = strategist.deploy(
+        StrategyCurveEURt, vault, pool, gauge, strategy_name
+    )
     total_old = strategy.estimatedTotalAssets()
 
     # can we harvest an unactivated strategy? should be no

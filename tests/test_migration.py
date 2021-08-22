@@ -31,7 +31,9 @@ def test_migration(
     chain.sleep(1)
 
     # deploy our new strategy
-    new_strategy = strategist.deploy(StrategyCurveEURt, vault, pool, gauge, strategy_name)
+    new_strategy = strategist.deploy(
+        StrategyCurveEURt, vault, pool, gauge, strategy_name
+    )
     total_old = strategy.estimatedTotalAssets()
 
     # can we harvest an unactivated strategy? should be no
