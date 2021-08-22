@@ -107,16 +107,16 @@ abstract contract StrategyCurveBase is BaseStrategy {
         return stratName;
     }
 
-    function _stakedBalance() internal view returns (uint256) {
+    function stakedBalance() public view returns (uint256) {
         return proxy.balanceOf(gauge);
     }
 
-    function _balanceOfWant() internal view returns (uint256) {
+    function balanceOfWant() public view returns (uint256) {
         return want.balanceOf(address(this));
     }
 
     function estimatedTotalAssets() public view override returns (uint256) {
-        return _balanceOfWant().add(_stakedBalance());
+        return balanceOfWant().add(stakedBalance());
     }
 
     /* ========== CONSTANT FUNCTIONS ========== */
@@ -127,7 +127,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
             return;
         }
         // Send all of our LP tokens to the proxy and deposit to the gauge if we have any
-        uint256 _toInvest = _balanceOfWant();
+        uint256 _toInvest = balanceOfWant();
         if (_toInvest > 0) {
             want.safeTransfer(address(proxy), _toInvest);
             proxy.deposit(gauge, address(want));
@@ -139,16 +139,18 @@ abstract contract StrategyCurveBase is BaseStrategy {
         override
         returns (uint256 _liquidatedAmount, uint256 _loss)
     {
-        if (_amountNeeded > _balanceOfWant()) {
+        uint256 _wantBal = balanceOfWant();
+        if (_amountNeeded > _wantBal) {
             // check if we have enough free funds to cover the withdrawal
-            if (_stakedBalance() > 0) {
+            uint256 _stakedBal = stakedBalance();
+            if (_stakedBal > 0) {
                 proxy.withdraw(
                     gauge,
                     address(want),
-                    Math.min(_stakedBalance(), _amountNeeded - _balanceOfWant())
+                    Math.min(_stakedBal, _amountNeeded - _wantBal)
                 );
             }
-            uint256 _withdrawnBal = _balanceOfWant();
+            uint256 _withdrawnBal = balanceOfWant();
             _liquidatedAmount = Math.min(_amountNeeded, _withdrawnBal);
             _loss = _amountNeeded.sub(_liquidatedAmount);
         } else {
@@ -159,16 +161,18 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     // fire sale, get rid of it all!
     function liquidateAllPositions() internal override returns (uint256) {
-        if (_stakedBalance() > 0) {
+        uint256 _stakedBal = stakedBalance();
+        if (_stakedBal > 0) {
             // don't bother withdrawing zero
-            proxy.withdraw(gauge, address(want), _stakedBalance());
+            proxy.withdraw(gauge, address(want), _stakedBal);
         }
-        return _balanceOfWant();
+        return balanceOfWant();
     }
 
     function prepareMigration(address _newStrategy) internal override {
-        if (_stakedBalance() > 0) {
-            proxy.withdraw(gauge, address(want), _stakedBalance());
+        uint256 _stakedBal = stakedBalance();
+        if (_stakedBal > 0) {
+            proxy.withdraw(gauge, address(want), _stakedBal);
         }
     }
 
@@ -268,7 +272,8 @@ contract StrategyCurveEURt is StrategyCurveBase {
         )
     {
         // if we have anything in the gauge, then harvest CRV from the gauge
-        if (_stakedBalance() > 0) {
+        uint256 _stakedBal = stakedBalance();
+        if (_stakedBal > 0) {
             proxy.harvest(gauge);
             uint256 _crvBalance = crv.balanceOf(address(this));
             // if we claimed any CRV, then sell it
@@ -294,16 +299,16 @@ contract StrategyCurveEURt is StrategyCurveBase {
 
         // debtOustanding will only be > 0 in the event of revoking or lowering debtRatio of a strategy
         if (_debtOutstanding > 0) {
-            if (_stakedBalance() > 0) {
+            if (_stakedBal > 0) {
                 // don't bother withdrawing if we don't have staked funds
                 proxy.withdraw(
                     gauge,
                     address(want),
-                    Math.min(_stakedBalance(), _debtOutstanding)
+                    Math.min(_stakedBal, _debtOutstanding)
                 );
             }
-            uint256 withdrawnBal = _balanceOfWant();
-            _debtPayment = Math.min(_debtOutstanding, withdrawnBal);
+            uint256 _withdrawnBal = balanceOfWant();
+            _debtPayment = Math.min(_debtOutstanding, _withdrawnBal);
         }
 
         // serious loss should never happen, but if it does (for instance, if Curve is hacked), let's record it accurately
