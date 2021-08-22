@@ -40,7 +40,7 @@ interface IOracle {
     ) external view returns (uint256 amountOut);
 }
 
-contract StrategyCurveEURt is BaseStrategy {
+abstract contract StrategyCurveBase is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -53,6 +53,8 @@ contract StrategyCurveEURt is BaseStrategy {
         ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152); // Yearn's Updated v4 StrategyProxy
     address public constant voter =
         address(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Yearn's veCRV voter
+    ICurveFi public curve; // Curve Pool, need this for buying more pool tokens
+    address public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
 
     // state variables used for swapping
     address public constant sushiswap =
@@ -67,27 +69,16 @@ contract StrategyCurveEURt is BaseStrategy {
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     bool internal manualHarvestNow = false; // only set this to true when we want to trigger our keepers to harvest for us
-
-    /* ========== STATE VARIABLES ========== */
-    // these will likely change across different wants.
-    // note that some strategies will require the "optimal" state variable here as well if we choose which token to sell into before depositing
-
-    address public constant gauge =
-        address(0xe8060Ad8971450E624d5289A10017dD30F5dA85F); // Curve EURt Gauge contract, tokenized, held by Yearn's voter
-    ICurveFi public constant curve =
-        ICurveFi(address(0xFD5dB7463a3aB53fD211b4af195c5BCCC1A03890)); // Curve EURt Pool
-    IOracle public oracle = IOracle(0x0F1f5A87f99f0918e6C81F16E59F3518698221Ff); // this is only needed for strats that use uniV3 for swaps
-    string internal stratName = "StrategyCurveEURt"; // set our strategy name here
-
-    // here are any additional tokens used in the swap path
-    IERC20 public constant usdt =
-        IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-    IERC20 public constant eurt =
-        IERC20(0xC581b735A1688071A1746c968e0798D642EDE491);
+    string internal stratName; // set our strategy name here
 
     /* ========== CONSTRUCTOR ========== */
 
-    constructor(address _vault) public BaseStrategy(_vault) {
+    constructor(
+        address _vault,
+        address _curvepool,
+        address _gauge,
+        string memory _name
+    ) public BaseStrategy(_vault) {
         /* ========== CONSTRUCTOR CONSTANTS ========== */
         // these should stay the same across different wants.
 
@@ -102,16 +93,12 @@ contract StrategyCurveEURt is BaseStrategy {
         want.safeApprove(address(proxy), type(uint256).max);
         crv.approve(sushiswap, type(uint256).max);
 
-        /* ========== CONSTRUCTOR VARIABLES ========== */
-        // these will likely change across different wants.
+        // set our curve pool and gauge contract
+        curve = ICurveFi(_curvepool);
+        gauge = address(_gauge);
 
-        // these are our approvals and path specific to this contract
-        eurt.safeApprove(address(curve), type(uint256).max);
-        weth.safeApprove(uniswapv3, type(uint256).max);
-
-        crvPath = new address[](2);
-        crvPath[0] = address(crv);
-        crvPath[1] = address(weth);
+        // set our strategy's name
+        stratName = _name;
     }
 
     /* ========== VIEWS ========== */
@@ -130,6 +117,136 @@ contract StrategyCurveEURt is BaseStrategy {
 
     function estimatedTotalAssets() public view override returns (uint256) {
         return _balanceOfWant().add(_stakedBalance());
+    }
+
+    /* ========== CONSTANT FUNCTIONS ========== */
+    // these should stay the same across different wants.
+
+    function adjustPosition(uint256 _debtOutstanding) internal override {
+        if (emergencyExit) {
+            return;
+        }
+        // Send all of our LP tokens to the proxy and deposit to the gauge if we have any
+        uint256 _toInvest = _balanceOfWant();
+        if (_toInvest > 0) {
+            want.safeTransfer(address(proxy), _toInvest);
+            proxy.deposit(gauge, address(want));
+        }
+    }
+
+    function liquidatePosition(uint256 _amountNeeded)
+        internal
+        override
+        returns (uint256 _liquidatedAmount, uint256 _loss)
+    {
+        if (_amountNeeded > _balanceOfWant()) {
+            // check if we have enough free funds to cover the withdrawal
+            if (_stakedBalance() > 0) {
+                proxy.withdraw(
+                    gauge,
+                    address(want),
+                    Math.min(_stakedBalance(), _amountNeeded - _balanceOfWant())
+                );
+            }
+            uint256 _withdrawnBal = _balanceOfWant();
+            _liquidatedAmount = Math.min(_amountNeeded, _withdrawnBal);
+            _loss = _amountNeeded.sub(_liquidatedAmount);
+        } else {
+            // we have enough balance to cover the liquidation available
+            return (_amountNeeded, 0);
+        }
+    }
+
+    // fire sale, get rid of it all!
+    function liquidateAllPositions() internal override returns (uint256) {
+        if (_stakedBalance() > 0) {
+            // don't bother withdrawing zero
+            proxy.withdraw(gauge, address(want), _stakedBalance());
+        }
+        return _balanceOfWant();
+    }
+
+    function prepareMigration(address _newStrategy) internal override {
+        if (_stakedBalance() > 0) {
+            proxy.withdraw(gauge, address(want), _stakedBalance());
+        }
+    }
+
+    function protectedTokens()
+        internal
+        view
+        override
+        returns (address[] memory)
+    {
+        address[] memory protected = new address[](0);
+        return protected;
+    }
+
+    /* ========== KEEP3RS ========== */
+
+    function harvestTrigger(uint256 callCostinEth)
+        public
+        view
+        override
+        returns (bool)
+    {
+        return super.harvestTrigger(callCostinEth) || manualHarvestNow;
+    }
+
+    /* ========== SETTERS ========== */
+
+    // These functions are useful for setting parameters of the strategy that may need to be adjusted.
+
+    // Use to update Yearn's StrategyProxy contract as needed in case of upgrades.
+    function setProxy(address _proxy) external onlyGovernance {
+        proxy = ICurveStrategyProxy(_proxy);
+    }
+
+    // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
+    function setKeepCRV(uint256 _keepCRV) external onlyAuthorized {
+        keepCRV = _keepCRV;
+    }
+
+    // This allows us to change the name of a strategy
+    function setName(string calldata _stratName) external onlyAuthorized {
+        stratName = _stratName;
+    }
+
+    // This allows us to manually harvest with our keeper as needed
+    function setManualHarvest(bool _manualHarvestNow) external onlyAuthorized {
+        manualHarvestNow = _manualHarvestNow;
+    }
+}
+
+contract StrategyCurveEURt is StrategyCurveBase {
+    /* ========== STATE VARIABLES ========== */
+    // these will likely change across different wants.
+    // note that some strategies will require the "optimal" state variable here as well if we choose which token to sell into before depositing
+
+    IOracle public oracle = IOracle(0x0F1f5A87f99f0918e6C81F16E59F3518698221Ff); // this is only needed for strats that use uniV3 for swaps
+
+    // here are any additional tokens used in the swap path
+    IERC20 public constant usdt =
+        IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+    IERC20 public constant eurt =
+        IERC20(0xC581b735A1688071A1746c968e0798D642EDE491);
+
+    constructor(
+        address _vault,
+        address _curvePool,
+        address _gauge,
+        string memory _name
+    ) public StrategyCurveBase(_vault, _curvePool, _gauge, _name) {
+        /* ========== CONSTRUCTOR VARIABLES ========== */
+        // these will likely change across different wants.
+
+        // these are our approvals and path specific to this contract
+        eurt.safeApprove(address(curve), type(uint256).max);
+        weth.safeApprove(uniswapv3, type(uint256).max);
+
+        crvPath = new address[](2);
+        crvPath[0] = address(crv);
+        crvPath[1] = address(weth);
     }
 
     /* ========== VARIABLE FUNCTIONS ========== */
@@ -230,79 +347,7 @@ contract StrategyCurveEURt is BaseStrategy {
         );
     }
 
-    /* ========== CONSTANT FUNCTIONS ========== */
-    // these should stay the same across different wants.
-
-    function adjustPosition(uint256 _debtOutstanding) internal override {
-        if (emergencyExit) {
-            return;
-        }
-        // Send all of our LP tokens to the proxy and deposit to the gauge if we have any
-        uint256 _toInvest = _balanceOfWant();
-        if (_toInvest > 0) {
-            want.safeTransfer(address(proxy), _toInvest);
-            proxy.deposit(gauge, address(want));
-        }
-    }
-
-    function liquidatePosition(uint256 _amountNeeded)
-        internal
-        override
-        returns (uint256 _liquidatedAmount, uint256 _loss)
-    {
-        if (_amountNeeded > _balanceOfWant()) {
-            // check if we have enough free funds to cover the withdrawal
-            if (_stakedBalance() > 0) {
-                proxy.withdraw(
-                    gauge,
-                    address(want),
-                    Math.min(_stakedBalance(), _amountNeeded - _balanceOfWant())
-                );
-            }
-            uint256 _withdrawnBal = _balanceOfWant();
-            _liquidatedAmount = Math.min(_amountNeeded, _withdrawnBal);
-            _loss = _amountNeeded.sub(_liquidatedAmount);
-        } else {
-            // we have enough balance to cover the liquidation available
-            return (_amountNeeded, 0);
-        }
-    }
-
-    // fire sale, get rid of it all!
-    function liquidateAllPositions() internal override returns (uint256) {
-        if (_stakedBalance() > 0) {
-            // don't bother withdrawing zero
-            proxy.withdraw(gauge, address(want), _stakedBalance());
-        }
-        return _balanceOfWant();
-    }
-
-    function prepareMigration(address _newStrategy) internal override {
-        if (_stakedBalance() > 0) {
-            proxy.withdraw(gauge, address(want), _stakedBalance());
-        }
-    }
-
-    function protectedTokens()
-        internal
-        view
-        override
-        returns (address[] memory)
-    {
-        address[] memory protected = new address[](0);
-        return protected;
-    }
-
     /* ========== KEEP3RS ========== */
-
-    function harvestTrigger(uint256 callCostinEth)
-        public
-        view
-        override
-        returns (bool)
-    {
-        return super.harvestTrigger(callCostinEth) || manualHarvestNow;
-    }
 
     // convert our keeper's eth cost into want
     function ethToWant(uint256 _ethAmount)
@@ -318,29 +363,5 @@ contract StrategyCurveEURt is BaseStrategy {
             callCostInWant = curve.calc_token_amount([callCostInEur, 0], true);
         }
         return callCostInWant;
-    }
-
-    /* ========== SETTERS ========== */
-
-    // These functions are useful for setting parameters of the strategy that may need to be adjusted.
-
-    // Use to update Yearn's StrategyProxy contract as needed in case of upgrades.
-    function setProxy(address _proxy) external onlyGovernance {
-        proxy = ICurveStrategyProxy(_proxy);
-    }
-
-    // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
-    function setKeepCRV(uint256 _keepCRV) external onlyAuthorized {
-        keepCRV = _keepCRV;
-    }
-
-    // This allows us to change the name of a strategy
-    function setName(string calldata _stratName) external onlyAuthorized {
-        stratName = _stratName;
-    }
-
-    // This allows us to manually harvest with our keeper as needed
-    function setManualHarvest(bool _manualHarvestNow) external onlyAuthorized {
-        manualHarvestNow = _manualHarvestNow;
     }
 }

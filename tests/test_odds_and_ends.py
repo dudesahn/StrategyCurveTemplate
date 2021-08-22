@@ -17,6 +17,8 @@ def test_odds_and_ends(
     gauge,
     StrategyCurveEURt,
     amount,
+    pool,
+    strategy_name,
 ):
 
     ## deposit to the vault after approving. turn off health check before each harvest since we're doing weird shit
@@ -50,7 +52,7 @@ def test_odds_and_ends(
 
     # we can try to migrate too, lol
     # deploy our new strategy
-    new_strategy = strategist.deploy(StrategyCurveEURt, vault)
+    new_strategy = strategist.deploy(StrategyCurveEURt, vault, pool, gauge, strategy_name)
     total_old = strategy.estimatedTotalAssets()
 
     # migrate our old strategy
@@ -147,6 +149,9 @@ def test_odds_and_ends_migration(
     strategist_ms,
     proxy,
     amount,
+    pool,
+    strategy_name,
+    gauge,
 ):
 
     ## deposit to the vault after approving
@@ -157,7 +162,7 @@ def test_odds_and_ends_migration(
     chain.sleep(1)
 
     # deploy our new strategy
-    new_strategy = strategist.deploy(StrategyCurveEURt, vault)
+    new_strategy = strategist.deploy(StrategyCurveEURt, vault, pool, gauge, strategy_name)
     total_old = strategy.estimatedTotalAssets()
 
     # can we harvest an unactivated strategy? should be no
