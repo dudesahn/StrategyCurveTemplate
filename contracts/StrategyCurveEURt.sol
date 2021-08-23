@@ -320,6 +320,7 @@ contract StrategyCurveEURt is StrategyCurveBase {
             _profit = assets.sub(debt);
             uint256 _wantBal = balanceOfWant();
             if (_profit.add(_debtPayment) > _wantBal) {
+                // this should only be hit following donations to strategy
                 liquidateAllPositions();
             }
         }

@@ -38,9 +38,6 @@ def test_change_debt_with_profit(
     donation = amount
     token.transfer(strategy, donation, {"from": whale})
 
-    # have our whale withdraw half of his donation, this ensures that we test withdrawing without pulling from the staked balance
-    vault.withdraw(donation / 2, {"from": whale})
-
     # simulate one day of earnings
     chain.sleep(86400)
     chain.mine(1)
