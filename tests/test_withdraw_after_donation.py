@@ -14,16 +14,6 @@ def test_withdraw_after_donation_1(
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    # simulate one day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    chain.sleep(60 * 60 * 10)
-    chain.mine(1)
-
     prev_params = vault.strategies(strategy).dict()
 
     currentDebt = vault.strategies(strategy)[2]
@@ -45,19 +35,15 @@ def test_withdraw_after_donation_1(
     chain.sleep(86400)
     chain.mine(1)
 
-    # We harvest twice to take profits and then to send the funds to our strategy. This is for our last check below.    
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
     strategy.harvest({"from": gov})
-    chain.sleep(86400) # this is only because uniV3 and EURT combo doesn't play nice with low swap amounts
-    strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
-
-    # sleep to allow share price to normalize
-    chain.sleep(86400)
-    chain.mine(1)
-
+    
+    # sleep 10 hours to increase our credit available for last assert at the bottom.
+    chain.sleep(60 * 60 * 10)
+    
     profit = new_params["totalGain"] - prev_params["totalGain"]
 
     # check that we've recorded a gain
@@ -74,11 +60,12 @@ def test_withdraw_after_donation_1(
     # check that we didn't add any more loss, or at least no more than 2 wei
     assert new_params["totalLoss"] == prev_params["totalLoss"]
 
-    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets (within 1 token)
+    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets plus credit available (within 1 token)
     # we multiply this by the debtRatio of our strategy out of 10_000 total
+    # we sleep 10 hours above specifically for this check
     assert math.isclose(
         vault.totalAssets() * new_params["debtRatio"] / 10_000,
-        strategy.estimatedTotalAssets(),
+        strategy.estimatedTotalAssets() + vault.creditAvailable(strategy),
         abs_tol=1e18,
     )
 
@@ -94,16 +81,6 @@ def test_withdraw_after_donation_2(
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    # simulate one day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    chain.sleep(60 * 60 * 10)
-    chain.mine(1)
-
     prev_params = vault.strategies(strategy).dict()
 
     currentDebt = vault.strategies(strategy)[2]
@@ -125,19 +102,15 @@ def test_withdraw_after_donation_2(
     chain.sleep(86400)
     chain.mine(1)
 
-    # We harvest twice to take profits and then to send the funds to our strategy. This is for our last check below.
-    chain.sleep(1)
-    
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
+    chain.sleep(1)
     strategy.harvest({"from": gov})
-    assert strategy.estimatedTotalAssets() == 0
     new_params = vault.strategies(strategy).dict()
-
-    # sleep to allow share price to normalize
-    chain.sleep(86400)
-    chain.mine(1)
-
+    
+    # sleep 10 hours to increase our credit available for last assert at the bottom.
+    chain.sleep(60 * 60 * 10)
+    
     profit = new_params["totalGain"] - prev_params["totalGain"]
 
     # check that we've recorded a gain
@@ -151,11 +124,12 @@ def test_withdraw_after_donation_2(
     # check that we didn't add any more loss, or at least no more than 2 wei
     assert new_params["totalLoss"] == prev_params["totalLoss"]
 
-    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets (within 1 token)
+    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets plus credit available (within 1 token)
     # we multiply this by the debtRatio of our strategy out of 10_000 total
+    # we sleep 10 hours above specifically for this check
     assert math.isclose(
         vault.totalAssets() * new_params["debtRatio"] / 10_000,
-        strategy.estimatedTotalAssets(),
+        strategy.estimatedTotalAssets() + vault.creditAvailable(strategy),
         abs_tol=1e18,
     )
 
@@ -170,17 +144,7 @@ def test_withdraw_after_donation_3(
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
-
-    # simulate one day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    chain.sleep(60 * 60 * 10)
-    chain.mine(1)
-
+    
     prev_params = vault.strategies(strategy).dict()
 
     currentDebt = vault.strategies(strategy)[2]
@@ -202,21 +166,15 @@ def test_withdraw_after_donation_3(
     chain.sleep(86400)
     chain.mine(1)
 
-    # We harvest twice to take profits and then to send the funds to our strategy. This is for our last check below.
-    chain.sleep(1)
-    
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
+    chain.sleep(1)
     strategy.harvest({"from": gov})
-    assert strategy.estimatedTotalAssets() == 0
-
-
     new_params = vault.strategies(strategy).dict()
-
-    # sleep to allow share price to normalize
-    chain.sleep(86400)
-    chain.mine(1)
-
+    
+    # sleep 10 hours to increase our credit available for last assert at the bottom.
+    chain.sleep(60 * 60 * 10)
+    
     profit = new_params["totalGain"] - prev_params["totalGain"]
 
     # check that we've recorded a gain
@@ -230,11 +188,12 @@ def test_withdraw_after_donation_3(
     # check that we didn't add any more loss, or at least no more than 2 wei
     assert new_params["totalLoss"] == prev_params["totalLoss"]
 
-    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets (within 1 token)
+    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets plus credit available (within 1 token)
     # we multiply this by the debtRatio of our strategy out of 10_000 total
+    # we sleep 10 hours above specifically for this check
     assert math.isclose(
         vault.totalAssets() * new_params["debtRatio"] / 10_000,
-        strategy.estimatedTotalAssets(),
+        strategy.estimatedTotalAssets() + vault.creditAvailable(strategy),
         abs_tol=1e18,
     )
     
@@ -249,16 +208,6 @@ def test_withdraw_after_donation_4(
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
-
-    # simulate one day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    chain.sleep(60 * 60 * 10)
-    chain.mine(1)
 
     prev_params = vault.strategies(strategy).dict()
 
@@ -281,19 +230,15 @@ def test_withdraw_after_donation_4(
     chain.sleep(86400)
     chain.mine(1)
 
-    # We harvest twice to take profits and then to send the funds to our strategy. This is for our last check below.    
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
     strategy.harvest({"from": gov})
-    chain.sleep(86400 * 2) # this is only because uniV3 and EURT combo doesn't play nice with low swap amounts
-    strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
-
-    # sleep to allow share price to normalize
-    chain.sleep(86400)
-    chain.mine(1)
-
+    
+    # sleep 10 hours to increase our credit available for last assert at the bottom.
+    chain.sleep(60 * 60 * 10)
+    
     profit = new_params["totalGain"] - prev_params["totalGain"]
 
     # check that we've recorded a gain
@@ -302,7 +247,9 @@ def test_withdraw_after_donation_4(
     # specifically check that our gain is greater than our donation or confirm we're no more than 5 wei off.
     assert new_params["totalGain"] - prev_params[
         "totalGain"
-    ] > donation
+    ] > donation or math.isclose(
+        new_params["totalGain"] - prev_params["totalGain"], donation, abs_tol=5
+    )
 
     # check to make sure that our debtRatio is about half of our previous debt
     assert new_params["debtRatio"] == currentDebt / 2
@@ -310,11 +257,12 @@ def test_withdraw_after_donation_4(
     # check that we didn't add any more loss, or at least no more than 2 wei
     assert new_params["totalLoss"] == prev_params["totalLoss"]
 
-    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets (within 1 token)
+    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets plus credit available (within 1 token)
     # we multiply this by the debtRatio of our strategy out of 10_000 total
+    # we sleep 10 hours above specifically for this check
     assert math.isclose(
         vault.totalAssets() * new_params["debtRatio"] / 10_000,
-        strategy.estimatedTotalAssets(),
+        strategy.estimatedTotalAssets() + vault.creditAvailable(strategy),
         abs_tol=1e18,
     )
     
@@ -331,16 +279,6 @@ def test_withdraw_after_donation_5(
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    # simulate one day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    chain.sleep(60 * 60 * 10)
-    chain.mine(1)
-
     prev_params = vault.strategies(strategy).dict()
 
     # our whale donates dust to the vault, what a nice person!
@@ -354,19 +292,15 @@ def test_withdraw_after_donation_5(
     chain.sleep(86400)
     chain.mine(1)
 
-    # We harvest twice to take profits and then to send the funds to our strategy. This is for our last check below.    
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
     strategy.harvest({"from": gov})
-    chain.sleep(86400) # this is only because uniV3 and EURT combo doesn't play nice with low swap amounts
-    strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
-
-    # sleep to allow share price to normalize
-    chain.sleep(86400)
-    chain.mine(1)
-
+    
+    # sleep 10 hours to increase our credit available for last assert at the bottom.
+    chain.sleep(60 * 60 * 10)
+    
     profit = new_params["totalGain"] - prev_params["totalGain"]
 
     # check that we've recorded a gain
@@ -380,13 +314,14 @@ def test_withdraw_after_donation_5(
     # check that we didn't add any more loss, or at least no more than 2 wei
     assert new_params["totalLoss"] == prev_params["totalLoss"]
 
-    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets (within 1 token)
+    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets plus credit available (within 1 token)
     # we multiply this by the debtRatio of our strategy out of 10_000 total
+    # we sleep 10 hours above specifically for this check
     assert math.isclose(
         vault.totalAssets() * new_params["debtRatio"] / 10_000,
-        strategy.estimatedTotalAssets(),
+        strategy.estimatedTotalAssets() + vault.creditAvailable(strategy),
         abs_tol=1e18,
-    )    
+    )
 
 # donate, withdraw less than the donation, then harvest
 def test_withdraw_after_donation_6(
@@ -399,16 +334,6 @@ def test_withdraw_after_donation_6(
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
-
-    # simulate one day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    chain.sleep(60 * 60 * 10)
-    chain.mine(1)
 
     prev_params = vault.strategies(strategy).dict()
 
@@ -423,19 +348,15 @@ def test_withdraw_after_donation_6(
     chain.sleep(86400)
     chain.mine(1)
 
-    # We harvest twice to take profits and then to send the funds to our strategy. This is for our last check below.    
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
     strategy.harvest({"from": gov})
-    chain.sleep(86400) # this is only because uniV3 and EURT combo doesn't play nice with low swap amounts
-    strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
-
-    # sleep to allow share price to normalize
-    chain.sleep(86400)
-    chain.mine(1)
-
+    
+    # sleep 10 hours to increase our credit available for last assert at the bottom.
+    chain.sleep(60 * 60 * 10)
+    
     profit = new_params["totalGain"] - prev_params["totalGain"]
 
     # check that we've recorded a gain
@@ -449,13 +370,14 @@ def test_withdraw_after_donation_6(
     # check that we didn't add any more loss, or at least no more than 2 wei
     assert new_params["totalLoss"] == prev_params["totalLoss"]
 
-    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets (within 1 token)
+    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets plus credit available (within 1 token)
     # we multiply this by the debtRatio of our strategy out of 10_000 total
+    # we sleep 10 hours above specifically for this check
     assert math.isclose(
         vault.totalAssets() * new_params["debtRatio"] / 10_000,
-        strategy.estimatedTotalAssets(),
+        strategy.estimatedTotalAssets() + vault.creditAvailable(strategy),
         abs_tol=1e18,
-    )    
+    )
     
 # lower debtRatio to 0, donate, withdraw more than the donation, then harvest
 def test_withdraw_after_donation_7(

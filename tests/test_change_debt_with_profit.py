@@ -12,17 +12,9 @@ def test_change_debt_with_profit(
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
-    chain.sleep(1)
-
-    # simulate one day of earnings
+    
+    # sleep long enough to make uniswap v3 happy (need minimum out)
     chain.sleep(86400)
-    chain.mine(1)
-
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    chain.sleep(60 * 60 * 10)
-    chain.mine(1)
 
     prev_params = vault.strategies(strategy).dict()
 
@@ -38,23 +30,15 @@ def test_change_debt_with_profit(
     donation = amount
     token.transfer(strategy, donation, {"from": whale})
 
-    # simulate one day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-
-    # We harvest twice to take profits and then to send the funds to our strategy. This is for our last check below.
-    chain.sleep(1)
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
-    strategy.harvest({"from": gov})
-    chain.sleep(60 * 60)
+    chain.sleep(1)
     strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
-
-    # sleep to allow share price to normalize
-    chain.sleep(86400)
-    chain.mine(1)
-
+    
+    # sleep 10 hours to increase our credit available for last assert at the bottom.
+    chain.sleep(60 * 60 * 10)
+    
     profit = new_params["totalGain"] - prev_params["totalGain"]
 
     # check that we've recorded a gain
@@ -75,10 +59,11 @@ def test_change_debt_with_profit(
         new_params["totalLoss"], prev_params["totalLoss"], abs_tol=2
     )
 
-    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets (within 1 token)
+    # assert that our vault total assets, multiplied by our debtRatio, is about equal to our estimated total assets plus credit available (within 1 token)
     # we multiply this by the debtRatio of our strategy out of 10_000 total
+    # we sleep 10 hours above specifically for this check
     assert math.isclose(
         vault.totalAssets() * new_params["debtRatio"] / 10_000,
-        strategy.estimatedTotalAssets(),
+        strategy.estimatedTotalAssets() + vault.creditAvailable(strategy),
         abs_tol=1e18,
     )
