@@ -68,7 +68,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    bool internal manualHarvestNow = false; // only set this to true externally when we want to trigger our keepers to harvest for us
+    bool internal keeperHarvestNow = false; // only set this to true externally when we want to trigger our keepers to harvest for us
     string internal stratName; // set our strategy name here
 
     /* ========== CONSTRUCTOR ========== */
@@ -195,7 +195,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         returns (bool)
     {
         // trigger if we want to manually harvest
-        if (manualHarvestNow) return true;
+        if (keeperHarvestNow) return true;
 
         // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
         if (!isActive()) return false;
@@ -223,8 +223,8 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     // This allows us to manually harvest with our keeper as needed
-    function setManualHarvest(bool _manualHarvestNow) external onlyAuthorized {
-        manualHarvestNow = _manualHarvestNow;
+    function setManualHarvest(bool _keeperHarvestNow) external onlyAuthorized {
+        keeperHarvestNow = _keeperHarvestNow;
     }
 }
 
@@ -281,19 +281,23 @@ contract StrategyCurveEURt is StrategyCurveBase {
                 // keep some of our CRV to increase our boost
                 uint256 _keepCRV =
                     _crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
-                crv.safeTransfer(voter, _keepCRV);
+                if (keepCRV > 0) crv.safeTransfer(voter, _keepCRV);
                 uint256 _crvRemainder = _crvBalance.sub(_keepCRV);
 
                 // sell the rest of our CRV
                 _sell(_crvRemainder);
 
                 // convert our WETH to EURt, but don't want to swap dust
-                uint256 _wethBalance = IERC20(weth).balanceOf(address(this));
-                if (_wethBalance > 0) _sellWethForEurt(_wethBalance);
+                uint256 _wethBalance = weth.balanceOf(address(this));
+                uint256 _eurtBalance = 0;
+                if (_wethBalance > 0) {
+                    _eurtBalance = _sellWethForEurt(_wethBalance);
+                }
 
-                // deposit our EURt to Curve
-                uint256 _eurtBalance = eurt.balanceOf(address(this));
-                curve.add_liquidity([_eurtBalance, 0], 0);
+                // deposit our EURt to Curve if we have any
+                if (_eurtBalance > 0) {
+                    curve.add_liquidity([_eurtBalance, 0], 0);
+                }
             }
         }
 
@@ -330,7 +334,7 @@ contract StrategyCurveEURt is StrategyCurveBase {
         }
 
         // we're done harvesting, so reset our trigger if we used it
-        if (manualHarvestNow) manualHarvestNow = false;
+        if (keeperHarvestNow) keeperHarvestNow = false;
     }
 
     // Sells our harvested CRV into the selected output.
@@ -345,22 +349,24 @@ contract StrategyCurveEURt is StrategyCurveBase {
     }
 
     // Sells our USDT for EURt
-    function _sellWethForEurt(uint256 _amount) internal {
-        IUniV3(uniswapv3).exactInput(
-            IUniV3.ExactInputParams(
-                abi.encodePacked(
-                    address(weth),
-                    uint24(500),
-                    address(usdt),
-                    uint24(500),
-                    address(eurt)
-                ),
-                address(this),
-                now,
-                _amount,
-                uint256(1)
-            )
-        );
+    function _sellWethForEurt(uint256 _amount) internal returns (uint256) {
+        uint256 _eurtOutput =
+            IUniV3(uniswapv3).exactInput(
+                IUniV3.ExactInputParams(
+                    abi.encodePacked(
+                        address(weth),
+                        uint24(500),
+                        address(usdt),
+                        uint24(500),
+                        address(eurt)
+                    ),
+                    address(this),
+                    now,
+                    _amount,
+                    uint256(1)
+                )
+            );
+        return _eurtOutput;
     }
 
     /* ========== KEEP3RS ========== */

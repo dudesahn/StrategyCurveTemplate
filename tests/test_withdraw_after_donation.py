@@ -1,5 +1,5 @@
 import brownie
-from brownie import chain
+from brownie import chain, Contract
 import math
 
 # lower debtRatio to 50%, donate, withdraw less than the donation, then harvest
@@ -386,16 +386,6 @@ def test_withdraw_after_donation_7(
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    # simulate one day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    chain.sleep(60 * 60 * 10)
-    chain.mine(1)
-
     prev_params = vault.strategies(strategy).dict()
     prev_assets = vault.totalAssets()
 
@@ -468,16 +458,6 @@ def test_withdraw_after_donation_8(
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
-
-    # simulate one day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    chain.sleep(60 * 60 * 10)
-    chain.mine(1)
 
     prev_params = vault.strategies(strategy).dict()
     prev_assets = vault.totalAssets()
