@@ -147,7 +147,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
                 proxy.withdraw(
                     gauge,
                     address(want),
-                    Math.min(_stakedBal, _amountNeeded - _wantBal)
+                    Math.min(_stakedBal, _amountNeeded.sub(_wantBal))
                 );
             }
             uint256 _withdrawnBal = balanceOfWant();
@@ -318,6 +318,10 @@ contract StrategyCurveEURt is StrategyCurveBase {
         // if assets are greater than debt, things are working great!
         if (assets > debt) {
             _profit = assets.sub(debt);
+            uint256 _wantBal = balanceOfWant();
+            if (_profit.add(_debtPayment) > _wantBal) {
+                liquidateAllPositions();
+            }
         }
         // if assets are less than debt, we are in trouble
         else {

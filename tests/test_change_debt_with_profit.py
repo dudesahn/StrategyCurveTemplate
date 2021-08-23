@@ -35,7 +35,7 @@ def test_change_debt_with_profit(
     assert tx == True
 
     # our whale donates dust to the vault, what a nice person!
-    donation = 1e16
+    donation = amount
     token.transfer(strategy, donation, {"from": whale})
 
     # have our whale withdraw half of his donation, this ensures that we test withdrawing without pulling from the staked balance
@@ -45,11 +45,18 @@ def test_change_debt_with_profit(
     chain.sleep(86400)
     chain.mine(1)
 
-    # we harvest first to take profits, then again to send the profit to the strategy. This is for our last check below.
+    # We harvest twice to take profits and then to send the funds to our strategy. This is for our last check below.
     chain.sleep(1)
+    # turn off health check since we just took big profit
+    strategy.setDoHealthCheck(False, {"from": gov})
     strategy.harvest({"from": gov})
-    chain.sleep(1)
+    chain.sleep(60 * 60)
+    strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
+
+    # sleep to allow share price to normalize
+    chain.sleep(86400)
+    chain.mine(1)
 
     profit = new_params["totalGain"] - prev_params["totalGain"]
 
@@ -75,6 +82,6 @@ def test_change_debt_with_profit(
     # we multiply this by the debtRatio of our strategy out of 10_000 total
     assert math.isclose(
         vault.totalAssets() * new_params["debtRatio"] / 10_000,
-        strategy.estimatedTotalAssets() + profit,
+        strategy.estimatedTotalAssets(),
         abs_tol=1e18,
     )
