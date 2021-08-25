@@ -15,10 +15,12 @@ def test_odds_and_ends(
     strategist_ms,
     voter,
     gauge,
-    StrategyCurveEURt,
+    StrategyCurve3CrvRewardsClonable,
     amount,
     pool,
     strategy_name,
+    has_rewards,
+    rewards_token,
 ):
 
     ## deposit to the vault after approving. turn off health check before each harvest since we're doing weird shit
@@ -53,7 +55,13 @@ def test_odds_and_ends(
     # we can try to migrate too, lol
     # deploy our new strategy
     new_strategy = strategist.deploy(
-        StrategyCurveEURt, vault, pool, gauge, strategy_name
+        StrategyCurve3CrvRewardsClonable,
+        vault,
+        pool,
+        gauge,
+        has_rewards,
+        rewards_token,
+        strategy_name,
     )
     total_old = strategy.estimatedTotalAssets()
 
@@ -109,7 +117,6 @@ def test_odds_and_ends_2(
     strategist_ms,
     voter,
     gauge,
-    StrategyCurveEURt,
     amount,
 ):
 
@@ -139,7 +146,7 @@ def test_odds_and_ends_2(
 
 
 def test_odds_and_ends_migration(
-    StrategyCurveEURt,
+    StrategyCurve3CrvRewardsClonable,
     gov,
     token,
     vault,
@@ -154,6 +161,8 @@ def test_odds_and_ends_migration(
     pool,
     strategy_name,
     gauge,
+    has_rewards,
+    rewards_token,
 ):
 
     ## deposit to the vault after approving
@@ -165,7 +174,13 @@ def test_odds_and_ends_migration(
 
     # deploy our new strategy
     new_strategy = strategist.deploy(
-        StrategyCurveEURt, vault, pool, gauge, strategy_name
+        StrategyCurve3CrvRewardsClonable,
+        vault,
+        pool,
+        gauge,
+        has_rewards,
+        rewards_token,
+        strategy_name,
     )
     total_old = strategy.estimatedTotalAssets()
 
@@ -368,7 +383,6 @@ def test_weird_reverts_and_trigger(
     strategy,
     chain,
     strategist_ms,
-    StrategyCurveEURt,
     other_vault_strategy,
     amount,
 ):
