@@ -88,7 +88,7 @@ def test_setters(
     strategy.setDoHealthCheck(True, {"from": gov})
     # this is causing the RPC to crash now, weirdly
     # with brownie.reverts():
-        # strategy.harvest({"from": gov})
+    # strategy.harvest({"from": gov})
 
     # set emergency exit last
     strategy.setEmergencyExit({"from": gov})
