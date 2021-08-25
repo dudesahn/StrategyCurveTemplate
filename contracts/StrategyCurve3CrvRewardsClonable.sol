@@ -219,7 +219,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     ICurveFi public constant zapContract = ICurveFi(0xA79828DF1850E8a3A3064576f380D90aECDD3359); // this is used for depositing to all 3Crv metapools
     
     // used for rewards tokens
-    address public rewards;
+    IERC20 public rewards;
     bool public hasRewards;
     address[] public rewardsPath;
     
@@ -326,10 +326,10 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         
         // setup our rewards if we have them
         if (_hasRewards) {
-            rewards = _rewards;
-            IERC20(rewards).approve(sushiswap, type(uint256).max);
+            rewards = IERC20(_rewards);
+            rewards.approve(sushiswap, type(uint256).max);
             rewardsPath = [address(rewards), address(weth), address(dai)]
-            hasRewards = _hasRewards;
+            hasRewards = true;
         }
 
         // set our curve gauge contract
@@ -379,7 +379,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
                 if (_crvRemainder > 0) _sell(_crvRemainder);
                 
                 if (hasRewards) {
-                    uint256 _rewardsBalance = IERC20(rewards).balanceOf(address(this));
+                    uint256 _rewardsBalance = rewards.balanceOf(address(this));
                     if (_rewardsBalance > 0) _sellRewards(_rewardsBalance);
                 }
 
