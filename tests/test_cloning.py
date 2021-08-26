@@ -26,19 +26,46 @@ def test_cloning(
     # Shouldn't be able to call initialize again
     with brownie.reverts():
         strategy.initialize(
-            vault, strategist, rewards, keeper, pool, gauge, has_rewards, rewards_token, strategy_name, {"from": gov},
+            vault,
+            strategist,
+            rewards,
+            keeper,
+            pool,
+            gauge,
+            has_rewards,
+            rewards_token,
+            strategy_name,
+            {"from": gov},
         )
 
     ## clone our strategy
     tx = strategy.clone(
-        vault, strategist, rewards, keeper, pool, gauge, has_rewards, rewards_token, strategy_name, {"from": gov}
+        vault,
+        strategist,
+        rewards,
+        keeper,
+        pool,
+        gauge,
+        has_rewards,
+        rewards_token,
+        strategy_name,
+        {"from": gov},
     )
     newStrategy = StrategyCurve3CrvRewardsClonable.at(tx.return_value)
 
     # Shouldn't be able to call initialize again
     with brownie.reverts():
         newStrategy.initialize(
-            vault, strategist, rewards, keeper, pool, gauge, has_rewards, rewards_token, strategy_name, {"from": gov},
+            vault,
+            strategist,
+            rewards,
+            keeper,
+            pool,
+            gauge,
+            has_rewards,
+            rewards_token,
+            strategy_name,
+            {"from": gov},
         )
 
     # revoke and send all funds back to vault
