@@ -382,7 +382,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             }
         }
 
-        // debtOustanding will only be > 0 in the event of revoking or lowering debtRatio of a strategy
+        // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
         if (_debtOutstanding > 0) {
             if (_stakedBal > 0) {
                 // don't bother withdrawing if we don't have staked funds
