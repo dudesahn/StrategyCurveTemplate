@@ -27,8 +27,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     // curve infrastructure contracts
     ICurveStrategyProxy public proxy; // Below we set it to Yearn's Updated v4 StrategyProxy
-    address public constant voter =
-        address(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Yearn's veCRV voter
+    address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
     address public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
 
     // state variables used for swapping
@@ -44,7 +43,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
-    bool internal keeperHarvestNow = false; // only set this to true externally when we want to trigger our keepers to harvest for us
+    bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
 
     string internal stratName; // set our strategy name here
 
@@ -133,8 +132,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         override
         returns (address[] memory)
     {
-        address[] memory protected = new address[](0);
-        return protected;
+        return new address[](0);
     }
 
     /* ========== KEEP3RS ========== */
@@ -146,7 +144,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         returns (bool)
     {
         // trigger if we want to manually harvest
-        if (keeperHarvestNow) return true;
+        if (forceHarvestTriggerOnce) return true;
 
         // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
         if (!isActive()) return false;
@@ -174,8 +172,11 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     // This allows us to manually harvest with our keeper as needed
-    function setManualHarvest(bool _keeperHarvestNow) external onlyAuthorized {
-        keeperHarvestNow = _keeperHarvestNow;
+    function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce)
+        external
+        onlyAuthorized
+    {
+        forceHarvestTriggerOnce = _forceHarvestTriggerOnce;
     }
 }
 
@@ -292,17 +293,16 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         string memory _name
     ) internal {
         // You can set these parameters on deployment to whatever you want
-        minReportDelay = 0;
-        maxReportDelay = 504000; // 140 hours in seconds
+        maxReportDelay = 7 days; // 7 days in seconds
         debtThreshold = 5 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
-        profitFactor = 10000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
+        profitFactor = 10_000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
         healthCheck = address(0xDDCea799fF1699e98EDF118e0629A974Df7DF012); // health.ychad.eth
 
         // need to set our proxy again when cloning since it's not a constant
         proxy = ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152);
 
         // these are our standard approvals. want = Curve LP token
-        want.safeApprove(address(proxy), type(uint256).max);
+        want.approve(address(proxy), type(uint256).max);
         crv.approve(sushiswap, type(uint256).max);
 
         // set our keepCRV
@@ -323,9 +323,9 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        dai.safeApprove(address(zapContract), type(uint256).max);
-        usdt.safeApprove(address(zapContract), type(uint256).max);
-        usdc.safeApprove(address(zapContract), type(uint256).max);
+        dai.approve(address(zapContract), type(uint256).max);
+        usdt.safeApprove(address(zapContract), type(uint256).max); // USDT requires safeApprove(), funky token
+        usdc.approve(address(zapContract), type(uint256).max);
 
         // start off with dai
         crvPath = [address(crv), address(weth), address(dai)];
@@ -415,7 +415,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         }
 
         // we're done harvesting, so reset our trigger if we used it
-        if (keeperHarvestNow) keeperHarvestNow = false;
+        forceHarvestTriggerOnce = false;
     }
 
     // Sells our harvested CRV into the selected output.
