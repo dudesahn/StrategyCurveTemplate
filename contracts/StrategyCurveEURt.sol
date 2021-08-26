@@ -287,7 +287,9 @@ contract StrategyCurveEURt is StrategyCurveBase {
                 uint256 _crvRemainder = _crvBalance.sub(_sendToVoter);
 
                 // sell the rest of our CRV
-                _sell(_crvRemainder);
+                if (_crvRemainder > 0) {
+                    _sell(_crvRemainder);
+                }
 
                 // convert our WETH to EURt, but don't want to swap dust
                 uint256 _wethBalance = weth.balanceOf(address(this));
