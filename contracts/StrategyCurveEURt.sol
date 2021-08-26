@@ -45,24 +45,25 @@ abstract contract StrategyCurveBase is BaseStrategy {
     using Address for address;
     using SafeMath for uint256;
 
-    /* ========== STATE CONSTANTS ========== */
+    /* ========== STATE VARIABLES ========== */
     // these should stay the same across different wants.
 
     // curve infrastructure contracts
     ICurveStrategyProxy public proxy =
         ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152); // Yearn's Updated v4 StrategyProxy
-    ICurveFi public curve; // Curve Pool, need this for buying more pool tokens
+    ICurveFi public curve; // Curve Pool, need this for depositing into our curve pool
     address public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
 
-    //keepCRV stuff
-    uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
-    uint256 public constant FEE_DENOMINATOR = 10000; // with this and the above, sending 10% of our CRV yield to our voter
+    // keepCRV stuff
+    uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
+    uint256 public constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in bips
     address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
 
     // swap stuff
     address public constant sushiswap =
         0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV liquidity there
     address[] public crvPath;
+
     IERC20 public constant crv =
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 public constant weth =
@@ -94,7 +95,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         return balanceOfWant().add(stakedBalance());
     }
 
-    /* ========== CONSTANT FUNCTIONS ========== */
+    /* ========== MUTATIVE FUNCTIONS ========== */
     // these should stay the same across different wants.
 
     function adjustPosition(uint256 _debtOutstanding) internal override {
@@ -213,10 +214,10 @@ abstract contract StrategyCurveBase is BaseStrategy {
 contract StrategyCurveEURt is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
-    // note that some strategies will require the "optimal" state variable here as well if we choose which token to sell into before depositing
 
-    // uniswap stuff
-    IOracle public oracle = IOracle(0x0F1f5A87f99f0918e6C81F16E59F3518698221Ff); // this is only needed for strats that use uniV3 for swaps
+    // Uniswap stuff
+    IOracle public constant oracle =
+        IOracle(0x0F1f5A87f99f0918e6C81F16E59F3518698221Ff); // this is only needed for strats that use uniV3 for swaps
     address public constant uniswapv3 =
         0xE592427A0AEce92De3Edee1F18E0157C05861564;
     IERC20 public constant usdt =
@@ -224,15 +225,14 @@ contract StrategyCurveEURt is StrategyCurveBase {
     IERC20 public constant eurt =
         IERC20(0xC581b735A1688071A1746c968e0798D642EDE491);
 
+    /* ========== CONSTRUCTOR ========== */
+
     constructor(
         address _vault,
         address _curvePool,
         address _gauge,
         string memory _name
     ) public StrategyCurveBase(_vault) {
-        /* ========== CONSTRUCTOR CONSTANTS ========== */
-        // these should stay the same across different wants.
-
         // You can set these parameters on deployment to whatever you want
         maxReportDelay = 7 days; // 7 days in seconds
         debtThreshold = 5 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
@@ -243,8 +243,13 @@ contract StrategyCurveEURt is StrategyCurveBase {
         want.approve(address(proxy), type(uint256).max);
         crv.approve(sushiswap, type(uint256).max);
 
-        // set our curve pool and gauge contract
+        // set our keepCRV
+        keepCRV = 1000;
+
+        // this is the pool specific to this vault, used for depositing
         curve = ICurveFi(_curvePool);
+
+        // set our curve gauge contract
         gauge = address(_gauge);
 
         // set our strategy's name
@@ -254,12 +259,11 @@ contract StrategyCurveEURt is StrategyCurveBase {
         eurt.approve(address(curve), type(uint256).max);
         weth.approve(uniswapv3, type(uint256).max);
 
-        crvPath = new address[](2);
-        crvPath[0] = address(crv);
-        crvPath[1] = address(weth);
+        // crv token path
+        crvPath = [address(crv), address(weth)];
     }
 
-    /* ========== VARIABLE FUNCTIONS ========== */
+    /* ========== MUTATIVE FUNCTIONS ========== */
     // these will likely change across different wants.
 
     function prepareReturn(uint256 _debtOutstanding)
