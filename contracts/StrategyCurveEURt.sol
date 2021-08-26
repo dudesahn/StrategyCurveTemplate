@@ -51,55 +51,31 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // curve infrastructure contracts
     ICurveStrategyProxy public proxy =
         ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152); // Yearn's Updated v4 StrategyProxy
-    address public constant voter =
-        address(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Yearn's veCRV voter
     ICurveFi public curve; // Curve Pool, need this for buying more pool tokens
     address public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
 
-    // state variables used for swapping
-    address public constant sushiswap =
-        address(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // default to sushiswap, more CRV liquidity there
-    address public constant uniswapv3 =
-        address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-    address[] public crvPath;
+    //keepCRV stuff
     uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
     uint256 public constant FEE_DENOMINATOR = 10000; // with this and the above, sending 10% of our CRV yield to our voter
+    address public constant voter =
+        address(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Yearn's veCRV voter
+
+    // swap stuff
+    address public constant sushiswap =
+        address(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // default to sushiswap, more CRV liquidity there
+    address[] public crvPath;
     IERC20 public constant crv =
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+
     bool internal keeperHarvestNow = false; // only set this to true externally when we want to trigger our keepers to harvest for us
+
     string internal stratName; // set our strategy name here
 
     /* ========== CONSTRUCTOR ========== */
 
-    constructor(
-        address _vault,
-        address _curvepool,
-        address _gauge,
-        string memory _name
-    ) public BaseStrategy(_vault) {
-        /* ========== CONSTRUCTOR CONSTANTS ========== */
-        // these should stay the same across different wants.
-
-        // You can set these parameters on deployment to whatever you want
-        minReportDelay = 0;
-        maxReportDelay = 504000; // 140 hours in seconds
-        debtThreshold = 5 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
-        profitFactor = 10000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
-        healthCheck = address(0xDDCea799fF1699e98EDF118e0629A974Df7DF012); // health.ychad.eth
-
-        // these are our standard approvals. want = Curve LP token
-        want.safeApprove(address(proxy), type(uint256).max);
-        crv.approve(sushiswap, type(uint256).max);
-
-        // set our curve pool and gauge contract
-        curve = ICurveFi(_curvepool);
-        gauge = address(_gauge);
-
-        // set our strategy's name
-        stratName = _name;
-    }
+    constructor(address _vault) public BaseStrategy(_vault) {}
 
     /* ========== VIEWS ========== */
 
@@ -237,9 +213,10 @@ contract StrategyCurveEURt is StrategyCurveBase {
     // these will likely change across different wants.
     // note that some strategies will require the "optimal" state variable here as well if we choose which token to sell into before depositing
 
+    // uniswap stuff
     IOracle public oracle = IOracle(0x0F1f5A87f99f0918e6C81F16E59F3518698221Ff); // this is only needed for strats that use uniV3 for swaps
-
-    // here are any additional tokens used in the swap path
+    address public constant uniswapv3 =
+        address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     IERC20 public constant usdt =
         IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
     IERC20 public constant eurt =
@@ -250,9 +227,26 @@ contract StrategyCurveEURt is StrategyCurveBase {
         address _curvePool,
         address _gauge,
         string memory _name
-    ) public StrategyCurveBase(_vault, _curvePool, _gauge, _name) {
-        /* ========== CONSTRUCTOR VARIABLES ========== */
-        // these will likely change across different wants.
+    ) public StrategyCurveBase(_vault) {
+        /* ========== CONSTRUCTOR CONSTANTS ========== */
+        // these should stay the same across different wants.
+
+        // You can set these parameters on deployment to whatever you want
+        maxReportDelay = 60 * 60 * 24 * 7; // 7 days in seconds, if we hit this then harvestTrigger = True
+        debtThreshold = 5 * 1e18; // set a bit of a buffer
+        profitFactor = 10000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy (what previously was an earn call)
+        healthCheck = address(0xDDCea799fF1699e98EDF118e0629A974Df7DF012); // health.ychad.eth
+
+        // these are our standard approvals. want = Curve LP token
+        want.safeApprove(address(proxy), type(uint256).max);
+        crv.approve(sushiswap, type(uint256).max);
+
+        // set our curve pool and gauge contract
+        curve = ICurveFi(_curvePool);
+        gauge = address(_gauge);
+
+        // set our strategy's name
+        stratName = _name;
 
         // these are our approvals and path specific to this contract
         eurt.safeApprove(address(curve), type(uint256).max);
@@ -307,7 +301,7 @@ contract StrategyCurveEURt is StrategyCurveBase {
             }
         }
 
-        // debtOustanding will only be > 0 in the event of revoking or lowering debtRatio of a strategy
+        // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
         if (_debtOutstanding > 0) {
             if (_stakedBal > 0) {
                 // don't bother withdrawing if we don't have staked funds
@@ -354,7 +348,7 @@ contract StrategyCurveEURt is StrategyCurveBase {
         );
     }
 
-    // Sells our USDT for EURt
+    // Sells our WETH for EURt
     function _sellWethForEurt(uint256 _amount) internal returns (uint256) {
         uint256 _eurtOutput =
             IUniV3(uniswapv3).exactInput(
