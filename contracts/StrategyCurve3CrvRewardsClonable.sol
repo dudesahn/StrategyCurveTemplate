@@ -162,8 +162,9 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
-    function setKeepCRV(uint256 _sendToVoter) external onlyAuthorized {
-        keepCRV = _sendToVoter;
+    function setKeepCRV(uint256 _keepCRV) external onlyAuthorized {
+        require(_keepCRV <= 10_000);
+        keepCRV = _keepCRV;
     }
 
     // This allows us to change the name of a strategy
