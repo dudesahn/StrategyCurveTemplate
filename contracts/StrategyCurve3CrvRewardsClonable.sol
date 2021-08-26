@@ -357,16 +357,22 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
                 // keep some of our CRV to increase our boost
                 uint256 _sendToVoter =
                     _crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
-                if (keepCRV > 0) crv.safeTransfer(voter, _sendToVoter);
+                if (keepCRV > 0) {
+                    crv.safeTransfer(voter, _sendToVoter);
+                }
                 uint256 _crvRemainder = _crvBalance.sub(_sendToVoter);
 
                 // sell the rest of our CRV
-                if (_crvRemainder > 0) _sell(_crvRemainder);
+                if (_crvRemainder > 0) {
+                    _sell(_crvRemainder);
+                }
 
                 if (hasRewards) {
                     uint256 _rewardsBalance =
                         rewardsToken.balanceOf(address(this));
-                    if (_rewardsBalance > 0) _sellRewards(_rewardsBalance);
+                    if (_rewardsBalance > 0) {
+                        _sellRewards(_rewardsBalance);
+                    }
                 }
 
                 // deposit our balance to Curve if we have any
