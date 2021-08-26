@@ -41,10 +41,12 @@ def test_cloning(
             vault, strategist, rewards, keeper, pool, gauge, has_rewards, rewards_token, strategy_name, {"from": gov},
         )
 
+    # revoke and send all funds back to vault
     vault.revokeStrategy(strategy, {"from": gov})
+    strategy.harvest({"from": gov})
+
+    # attach our new strategy and approve it on the proxy
     vault.addStrategy(newStrategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
-    
-    # add our new strategy to the proxy
     proxy.approveStrategy(newStrategy.gauge(), newStrategy, {"from": gov})
 
     assert vault.withdrawalQueue(1) == newStrategy
@@ -59,7 +61,7 @@ def test_cloning(
     vault.deposit(1000e18, {"from": whale})
 
     # harvest, store asset amount
-    newStrategy.harvest({"from": gov})
+    tx = newStrategy.harvest({"from": gov})
     old_assets_dai = vault.totalAssets()
     assert old_assets_dai > 0
     assert token.balanceOf(newStrategy) == 0

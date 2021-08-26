@@ -26,8 +26,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // these should stay the same across different wants.
 
     // curve infrastructure contracts
-    ICurveStrategyProxy public proxy =
-        ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152); // Yearn's Updated v4 StrategyProxy
+    ICurveStrategyProxy public proxy; // Below we set it to Yearn's Updated v4 StrategyProxy
     address public constant voter =
         address(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Yearn's veCRV voter
     address public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
@@ -37,7 +36,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV liquidity there
     address[] public crvPath;
 
-    uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
+    uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
     uint256 public constant FEE_DENOMINATOR = 10000; // with this and the above, sending 10% of our CRV yield to our voter
 
     IERC20 public constant crv =
@@ -299,9 +298,15 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         profitFactor = 10000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
         healthCheck = address(0xDDCea799fF1699e98EDF118e0629A974Df7DF012); // health.ychad.eth
 
+        // need to set our proxy again when cloning since it's not a constant
+        proxy = ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152);
+
         // these are our standard approvals. want = Curve LP token
         want.safeApprove(address(proxy), type(uint256).max);
         crv.approve(sushiswap, type(uint256).max);
+
+        // set our keepCRV
+        keepCRV = 1000;
 
         // setup our rewards if we have them
         if (_hasRewards) {
