@@ -165,8 +165,8 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
-    function setKeepCRV(uint256 _keepCRV) external onlyAuthorized {
-        keepCRV = _keepCRV;
+    function setKeepCRV(uint256 _sendToVoter) external onlyAuthorized {
+        keepCRV = _sendToVoter;
     }
 
     // This allows us to change the name of a strategy
@@ -349,10 +349,10 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             // if we claimed any CRV, then sell it
             if (_crvBalance > 0) {
                 // keep some of our CRV to increase our boost
-                uint256 _keepCRV =
+                uint256 _sendToVoter =
                     _crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
-                if (keepCRV > 0) crv.safeTransfer(voter, _keepCRV);
-                uint256 _crvRemainder = _crvBalance.sub(_keepCRV);
+                if (keepCRV > 0) crv.safeTransfer(voter, _sendToVoter);
+                uint256 _crvRemainder = _crvBalance.sub(_sendToVoter);
 
                 // sell the rest of our CRV
                 if (_crvRemainder > 0) _sell(_crvRemainder);
