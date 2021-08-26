@@ -195,10 +195,14 @@ abstract contract StrategyCurveBase is BaseStrategy {
         returns (bool)
     {
         // trigger if we want to manually harvest
-        if (keeperHarvestNow) return true;
+        if (keeperHarvestNow) {
+            return true;
+        }
 
         // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
-        if (!isActive()) return false;
+        if (!isActive()) {
+            return false;
+        }
 
         return super.harvestTrigger(callCostinEth);
     }
@@ -281,7 +285,9 @@ contract StrategyCurveEURt is StrategyCurveBase {
                 // keep some of our CRV to increase our boost
                 uint256 _sendToVoter =
                     _crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
-                if (keepCRV > 0) crv.safeTransfer(voter, _sendToVoter);
+                if (keepCRV > 0) {
+                    crv.safeTransfer(voter, _sendToVoter);
+                }
                 uint256 _crvRemainder = _crvBalance.sub(_sendToVoter);
 
                 // sell the rest of our CRV
