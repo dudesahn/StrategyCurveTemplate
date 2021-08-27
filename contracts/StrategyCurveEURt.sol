@@ -237,7 +237,7 @@ contract StrategyCurveEURT is StrategyCurveBase {
         maxReportDelay = 7 days; // 7 days in seconds
         debtThreshold = 5 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
         profitFactor = 10_000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
-        healthCheck = address(0xDDCea799fF1699e98EDF118e0629A974Df7DF012); // health.ychad.eth
+        healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
 
         // these are our standard approvals. want = Curve LP token
         want.approve(address(proxy), type(uint256).max);
