@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity >=0.6.0 <0.7.0;
+pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
@@ -19,6 +19,7 @@ interface ICurveStrategyProxy {
 
     function balanceOf(address _gauge) external view returns (uint256);
 
+    // review: remove commented code?
     //        return IERC20(_gauge).balanceOf(address(proxy));
 
     function withdrawAll(address _gauge, address _token)

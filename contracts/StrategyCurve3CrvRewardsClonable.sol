@@ -12,10 +12,7 @@ import "@openzeppelin/contracts/math/Math.sol";
 import "./interfaces/curve.sol";
 import "./interfaces/yearn.sol";
 import {IUniswapV2Router02} from "./interfaces/uniswap.sol";
-import {
-    BaseStrategy,
-    StrategyParams
-} from "@yearnvaults/contracts/BaseStrategy.sol";
+import {BaseStrategy} from "@yearnvaults/contracts/BaseStrategy.sol";
 
 abstract contract StrategyCurveBase is BaseStrategy {
     using SafeERC20 for IERC20;
@@ -131,10 +128,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         internal
         view
         override
-        returns (address[] memory)
-    {
-        return new address[](0);
-    }
+        returns (address[] memory) {}
 
     /* ========== KEEP3RS ========== */
 
@@ -172,11 +166,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
         keepCRV = _keepCRV;
     }
 
-    // This allows us to change the name of a strategy
-    function setName(string calldata _stratName) external onlyAuthorized {
-        stratName = _stratName;
-    }
-
     // This allows us to manually harvest with our keeper as needed
     function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce)
         external
@@ -205,6 +194,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
 
     // rewards token info
+    // review: rewards might be more than 1. perhaps we want to leave that for later
     IERC20 public rewardsToken;
     bool public hasRewards;
     address[] public rewardsPath;
@@ -230,6 +220,8 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     event Cloned(address indexed clone);
 
     // we use this to clone our original strategy to other vaults
+    // review: I prefer to have the name of what we are cloning
+    // something like cloneCurve3CrvRewards
     function clone(
         address _vault,
         address _strategist,
@@ -380,6 +372,10 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
                     }
                 }
 
+                // review: why not do something like:
+                // zapContract.add_liquidity(curve, [0, _dai, _usdc, _usdt], 0);
+                // and remove all the logic below
+
                 // deposit our balance to Curve if we have any
                 if (optimal == 0) {
                     uint256 daiBalance = dai.balanceOf(address(this));
@@ -437,7 +433,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             uint256(0),
             crvPath,
             address(this),
-            now
+            now // review use block.timestamp since now is getting deprecated
         );
     }
 
@@ -448,7 +444,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             uint256(0),
             rewardsPath,
             address(this),
-            now
+            now // review use block.timestamp since now is getting deprecated
         );
     }
 
@@ -514,6 +510,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             if (hasRewards) rewardsPath[2] = address(usdt);
             optimal = 2;
         } else {
+            // review: revert("incorrect token");
             require(false, "incorrect token");
         }
     }
