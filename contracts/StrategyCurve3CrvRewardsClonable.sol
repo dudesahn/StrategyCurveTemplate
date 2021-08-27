@@ -22,21 +22,22 @@ abstract contract StrategyCurveBase is BaseStrategy {
     using Address for address;
     using SafeMath for uint256;
 
-    /* ========== STATE CONSTANTS ========== */
+    /* ========== STATE VARIABLES ========== */
     // these should stay the same across different wants.
 
     // curve infrastructure contracts
     ICurveStrategyProxy public proxy; // Below we set it to Yearn's Updated v4 StrategyProxy
-    address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
     address public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
 
-    // state variables used for swapping
+    // keepCRV stuff
+    uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
+    uint256 public constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in bips
+    address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
+
+    // swap stuff
     address public constant sushiswap =
         0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV liquidity there
     address[] public crvPath;
-
-    uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
-    uint256 public constant FEE_DENOMINATOR = 10000; // with this and the above, sending 10% of our CRV yield to our voter
 
     IERC20 public constant crv =
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
@@ -69,7 +70,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         return balanceOfWant().add(stakedBalance());
     }
 
-    /* ========== CONSTANT FUNCTIONS ========== */
+    /* ========== MUTATIVE FUNCTIONS ========== */
     // these should stay the same across different wants.
 
     function adjustPosition(uint256 _debtOutstanding) internal override {
@@ -144,10 +145,14 @@ abstract contract StrategyCurveBase is BaseStrategy {
         returns (bool)
     {
         // trigger if we want to manually harvest
-        if (forceHarvestTriggerOnce) return true;
+        if (forceHarvestTriggerOnce) {
+            return true;
+        }
 
         // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
-        if (!isActive()) return false;
+        if (!isActive()) {
+            return false;
+        }
 
         return super.harvestTrigger(callCostinEth);
     }
@@ -185,10 +190,13 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
-    address public curve; // Curve Pool, this is our pool specific to this vault
-    uint256 public optimal; // this is the optimal token to deposit back to our curve pool. 0 DAI, 1 USDC, 2 USDT
+    // Curve stuff
+    address public curve; // This is our pool specific to this vault. Use it with zap contract to specify our correct pool.
+    ICurveFi public constant zapContract =
+        ICurveFi(0xA79828DF1850E8a3A3064576f380D90aECDD3359); // this is used for depositing to all 3Crv metapools
 
-    // addresses for our tokens
+    // we use these to deposit to our curve pool
+    uint256 public optimal; // this is the optimal token to deposit back to our curve pool. 0 DAI, 1 USDC, 2 USDT
     IERC20 public constant usdt =
         IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
     IERC20 public constant usdc =
@@ -196,10 +204,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     IERC20 public constant dai =
         IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
 
-    ICurveFi public constant zapContract =
-        ICurveFi(0xA79828DF1850E8a3A3064576f380D90aECDD3359); // this is used for depositing to all 3Crv metapools
-
-    // used for rewards tokens
+    // rewards token info
     IERC20 public rewardsToken;
     bool public hasRewards;
     address[] public rewardsPath;
@@ -317,6 +322,9 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             hasRewards = true;
         }
 
+        // this is the pool specific to this vault, but we only use it as an address
+        curve = address(_curvePool);
+
         // set our curve gauge contract
         gauge = address(_gauge);
 
@@ -330,12 +338,9 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
 
         // start off with dai
         crvPath = [address(crv), address(weth), address(dai)];
-
-        // this is the pool specific to this vault
-        curve = address(_curvePool);
     }
 
-    /* ========== VARIABLE FUNCTIONS ========== */
+    /* ========== MUTATIVE FUNCTIONS ========== */
     // these will likely change across different wants.
 
     function prepareReturn(uint256 _debtOutstanding)
