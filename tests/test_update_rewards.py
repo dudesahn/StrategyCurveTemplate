@@ -1,6 +1,7 @@
 import brownie
 from brownie import Wei, accounts, Contract, config
 
+
 def test_update_from_zero(
     gov,
     token,
@@ -87,19 +88,29 @@ def test_update_from_zero(
             / (newStrategy.estimatedTotalAssets())
         ),
     )
-    
+
     # check that we still don't have a rewards token set
     assert newStrategy.rewardsToken() == zero_address
     assert newStrategy.hasRewards() == False
-    assert rewards_token.allowance(newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F") == 0
+    assert (
+        rewards_token.allowance(
+            newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+        )
+        == 0
+    )
 
     # add our rewards token, harvest to take the profit from it. this should be extra high yield from this harvest
     newStrategy.updateRewards(rewards_token, {"from": gov})
-    
+
     # assert that we set things up correctly
     assert newStrategy.rewardsToken() == rewards_token
     assert newStrategy.hasRewards() == True
-    assert rewards_token.allowance(newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F") > 0
+    assert (
+        rewards_token.allowance(
+            newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+        )
+        > 0
+    )
 
     # track our new pps and assets
     new_pps = vault.pricePerShare()
@@ -109,7 +120,7 @@ def test_update_from_zero(
     chain.sleep(86400)
     chain.mine(1)
     newStrategy.harvest({"from": gov})
-    
+
     # confirm that we are selling our rewards token
     assert newStrategy.rewardsToken() == rewards_token
     assert newStrategy.hasRewards() == True
@@ -134,7 +145,7 @@ def test_update_from_zero(
     assert token.balanceOf(whale) >= startingWhale
     assert vault.pricePerShare() > before_pps
     assert vault.pricePerShare() > new_pps
-    
+
 
 def test_turn_off_rewards(
     gov,
@@ -214,13 +225,18 @@ def test_turn_off_rewards(
             / (newStrategy.estimatedTotalAssets())
         ),
     )
-    
+
     # turn off rewards claiming
     old_assets_dai = vault.totalAssets()
     newStrategy.turnOffRewards({"from": gov})
     assert newStrategy.hasRewards() == False
     assert newStrategy.rewardsToken() == zero_address
-    assert rewards_token.allowance(newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F") == 0
+    assert (
+        rewards_token.allowance(
+            newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+        )
+        == 0
+    )
     new_pps = vault.pricePerShare()
 
     # harvest with our rewards token off
@@ -236,7 +252,7 @@ def test_turn_off_rewards(
             / (newStrategy.estimatedTotalAssets())
         ),
     )
-    
+
     # simulate a day of waiting for share price to bump back up
     chain.sleep(86400)
     chain.mine(1)
@@ -325,17 +341,27 @@ def test_update_from_zero_to_off(
             / (newStrategy.estimatedTotalAssets())
         ),
     )
-    
+
     # try turning off our rewards again
     assert newStrategy.rewardsToken() == zero_address
     assert newStrategy.hasRewards() == False
-    assert rewards_token.allowance(newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F") == 0
+    assert (
+        rewards_token.allowance(
+            newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+        )
+        == 0
+    )
 
     newStrategy.turnOffRewards({"from": gov})
     assert newStrategy.rewardsToken() == zero_address
     assert newStrategy.hasRewards() == False
-    assert rewards_token.allowance(newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F") == 0
-    
+    assert (
+        rewards_token.allowance(
+            newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+        )
+        == 0
+    )
+
     # track our new pps and assets
     old_assets_dai = vault.totalAssets()
 
@@ -343,7 +369,7 @@ def test_update_from_zero_to_off(
     chain.sleep(86400)
     chain.mine(1)
     newStrategy.harvest({"from": gov})
-    
+
     # confirm that we are selling our rewards token
     assert rewards_token.balanceOf(newStrategy) == 0
     new_assets_dai = vault.totalAssets()
@@ -365,7 +391,7 @@ def test_update_from_zero_to_off(
     vault.withdraw({"from": whale})
     assert token.balanceOf(whale) >= startingWhale
     assert vault.pricePerShare() > before_pps
-        
+
 
 def test_change_rewards(
     gov,
@@ -435,7 +461,7 @@ def test_change_rewards(
     new_assets_dai = vault.totalAssets()
     # we can't use strategyEstimated Assets because the profits are sent to the vault
     assert new_assets_dai >= old_assets_dai
-    
+
     # confirm that we are still selling our rewards token
     assert rewards_token.balanceOf(newStrategy) == 0
 
@@ -447,10 +473,11 @@ def test_change_rewards(
             / (newStrategy.estimatedTotalAssets())
         ),
     )
-    
+
     # pretend that we're getting our underlying token as a reward, assert that the approvals worked on sushi router
     newStrategy.updateRewards(token, {"from": gov})
-    assert token.allowance(newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F") > 0
+    assert (
+        token.allowance(newStrategy, "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F") > 0
+    )
     assert newStrategy.rewardsToken() == token
     assert newStrategy.hasRewards() == True
-
