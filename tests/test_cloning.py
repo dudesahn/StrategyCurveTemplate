@@ -39,7 +39,7 @@ def test_cloning(
         )
 
     ## clone our strategy
-    tx = strategy.clone(
+    tx = strategy.cloneCurve3CrvRewards(
         vault,
         strategist,
         rewards,

@@ -12,10 +12,7 @@ import "@openzeppelin/contracts/math/Math.sol";
 import "./interfaces/curve.sol";
 import "./interfaces/yearn.sol";
 import {IUniswapV2Router02} from "./interfaces/uniswap.sol";
-import {
-    BaseStrategy,
-    StrategyParams
-} from "@yearnvaults/contracts/BaseStrategy.sol";
+import {BaseStrategy} from "@yearnvaults/contracts/BaseStrategy.sol";
 
 abstract contract StrategyCurveBase is BaseStrategy {
     using SafeERC20 for IERC20;
@@ -132,9 +129,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         view
         override
         returns (address[] memory)
-    {
-        return new address[](0);
-    }
+    {}
 
     /* ========== KEEP3RS ========== */
 
@@ -172,11 +167,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
         keepCRV = _keepCRV;
     }
 
-    // This allows us to change the name of a strategy
-    function setName(string calldata _stratName) external onlyAuthorized {
-        stratName = _stratName;
-    }
-
     // This allows us to manually harvest with our keeper as needed
     function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce)
         external
@@ -204,7 +194,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     IERC20 public constant dai =
         IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
 
-    // rewards token info
+    // rewards token info. we can have more than 1 reward token but this is rare, so we don't include this in the template
     IERC20 public rewardsToken;
     bool public hasRewards;
     address[] public rewardsPath;
@@ -230,7 +220,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     event Cloned(address indexed clone);
 
     // we use this to clone our original strategy to other vaults
-    function clone(
+    function cloneCurve3CrvRewards(
         address _vault,
         address _strategist,
         address _rewards,
@@ -298,6 +288,9 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         address _rewardsToken,
         string memory _name
     ) internal {
+        // make sure that we haven't initialized this before
+        require(address(curve) == address(0)); // already initialized.
+
         // You can set these parameters on deployment to whatever you want
         maxReportDelay = 7 days; // 7 days in seconds
         debtThreshold = 5 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
@@ -373,6 +366,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
                 }
 
                 if (hasRewards) {
+                    proxy.claimRewards(gauge, address(rewardsToken));
                     uint256 _rewardsBalance =
                         rewardsToken.balanceOf(address(this));
                     if (_rewardsBalance > 0) {
@@ -437,7 +431,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             uint256(0),
             crvPath,
             address(this),
-            now
+            block.timestamp
         );
     }
 
@@ -448,7 +442,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             uint256(0),
             rewardsPath,
             address(this),
-            now
+            block.timestamp
         );
     }
 
@@ -488,14 +482,26 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
 
-    // Use to update whether we have extra rewards or not
-    function setHasRewards(bool _hasRewards) external onlyGovernance {
-        hasRewards = _hasRewards;
+    // Use to add or update rewards
+    function updateRewards(address _rewardsToken) external onlyGovernance {
+        // reset allowance to zero for our previous token if we had one
+        if (address(rewardsToken) != address(0)) {
+            rewardsToken.approve(sushiswap, uint256(0));
+        }
+        // update with our new token, use dai as default
+        rewardsToken = IERC20(_rewardsToken);
+        rewardsToken.approve(sushiswap, type(uint256).max);
+        rewardsPath = [address(rewardsToken), address(weth), address(dai)];
+        hasRewards = true;
     }
 
-    // Use to update our rewards token address
-    function setRewardsAddress(address _rewards) external onlyGovernance {
-        rewards = _rewards;
+    // Use to turn off extra rewards claiming
+    function turnOffRewards() external onlyGovernance {
+        hasRewards = false;
+        if (address(rewardsToken) != address(0)) {
+            rewardsToken.approve(sushiswap, uint256(0));
+        }
+        rewardsToken = IERC20(address(0));
     }
 
     // Set optimal token to sell harvested funds for depositing to Curve.
@@ -503,18 +509,24 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     function setOptimal(uint256 _optimal) external onlyAuthorized {
         if (_optimal == 0) {
             crvPath[2] = address(dai);
-            if (hasRewards) rewardsPath[2] = address(dai);
+            if (hasRewards) {
+                rewardsPath[2] = address(dai);
+            }
             optimal = 0;
         } else if (_optimal == 1) {
             crvPath[2] = address(usdc);
-            if (hasRewards) rewardsPath[2] = address(usdc);
+            if (hasRewards) {
+                rewardsPath[2] = address(usdc);
+            }
             optimal = 1;
         } else if (_optimal == 2) {
             crvPath[2] = address(usdt);
-            if (hasRewards) rewardsPath[2] = address(usdt);
+            if (hasRewards) {
+                rewardsPath[2] = address(usdt);
+            }
             optimal = 2;
         } else {
-            require(false, "incorrect token");
+            revert("incorrect token");
         }
     }
 }
