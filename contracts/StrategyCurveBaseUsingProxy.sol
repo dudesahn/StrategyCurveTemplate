@@ -13,7 +13,7 @@ import "./interfaces/curve.sol";
 import "./interfaces/yearn.sol";
 import {BaseStrategy} from "@yearnvaults/contracts/BaseStrategy.sol";
 
-abstract contract StrategyCurveBase is BaseStrategy {
+abstract contract StrategyCurveBaseUsingProxy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
@@ -44,11 +44,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     function stakedBalance() public view returns (uint256) {
-        if (shouldUseProxy()) {
-            return proxy.balanceOf(address(gauge));
-        } else {
-            return gauge.balanceOf(address(this));
-        }
+        return proxy.balanceOf(address(gauge));
     }
 
     function balanceOfWant() public view returns (uint256) {
@@ -57,10 +53,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     function estimatedTotalAssets() public view override returns (uint256) {
         return balanceOfWant().add(stakedBalance());
-    }
-
-    function shouldUseProxy() internal view returns (bool) {
-        return address(0) != address(proxy);
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -73,12 +65,8 @@ abstract contract StrategyCurveBase is BaseStrategy {
         // Send all of our LP tokens to the proxy and deposit to the gauge if we have any
         uint256 _toInvest = balanceOfWant();
         if (_toInvest > 0) {
-            if (shouldUseProxy()) {
-                want.safeTransfer(address(proxy), _toInvest);
-                proxy.deposit(address(gauge), address(want));
-            } else {
-                gauge.deposit(_toInvest);
-            }
+            want.safeTransfer(address(proxy), _toInvest);
+            proxy.deposit(address(gauge), address(want));
         }
     }
 
@@ -97,11 +85,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         uint256 _stakedBal = stakedBalance();
         if (_stakedBal > 0) {
             uint256 amount = Math.min(_stakedBal, _amountNeeded.sub(_wantBal));
-            if (shouldUseProxy()) {
-                proxy.withdraw(address(gauge), address(want), amount);
-            } else {
-                gauge.withdraw(amount);
-            }
+            proxy.withdraw(address(gauge), address(want), amount);
         }
 
         uint256 _withdrawnBal = balanceOfWant();
@@ -115,11 +99,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
         // don't bother withdrawing zero
         if (_stakedBal > 0) {
-            if (shouldUseProxy()) {
-                proxy.withdraw(address(gauge), address(want), _stakedBal);
-            } else {
-                gauge.withdraw(_stakedBal);
-            }
+            proxy.withdraw(address(gauge), address(want), _stakedBal);
         }
 
         return balanceOfWant();
@@ -128,11 +108,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     function prepareMigration(address _newStrategy) internal override {
         uint256 _stakedBal = stakedBalance();
         if (_stakedBal > 0) {
-            if (shouldUseProxy()) {
-                proxy.withdraw(address(gauge), address(want), _stakedBal);
-            } else {
-                gauge.withdraw(_stakedBal);
-            }
+            proxy.withdraw(address(gauge), address(want), _stakedBal);
         }
     }
 

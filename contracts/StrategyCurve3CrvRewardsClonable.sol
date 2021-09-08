@@ -12,9 +12,9 @@ import "@openzeppelin/contracts/math/Math.sol";
 import "./interfaces/curve.sol";
 import "./interfaces/yearn.sol";
 import {IUniswapV2Router02} from "./interfaces/uniswap.sol";
-import "./StrategyCurveBase.sol";
+import "./StrategyCurveBaseUsingProxy.sol";
 
-contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
+contract StrategyCurve3CrvRewardsClonable is StrategyCurveBaseUsingProxy {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -61,7 +61,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         bool _hasRewards,
         address _rewardsToken,
         string memory _name
-    ) public StrategyCurveBase(_vault) {
+    ) public StrategyCurveBaseUsingProxy(_vault) {
         _initializeStrat(_curvePool, _gauge, _hasRewards, _rewardsToken, _name);
     }
 
