@@ -131,9 +131,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         view
         override
         returns (address[] memory)
-    {
-        return new address[](0);
-    }
+    {}
 
     /* ========== KEEP3RS ========== */
 
