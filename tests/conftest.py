@@ -8,17 +8,17 @@ def isolation(fn_isolation):
 
 
 # put our pool's convex pid here; this is the only thing that should need to change up here **************
-@pytest.fixture(scope="module")
-def pid():
-    pid = 39
-    yield pid
+# @pytest.fixture(scope="module")
+# def pid():
+#     pid = 39
+#     yield pid
 
 
 @pytest.fixture(scope="module")
 def whale(accounts):
     # Totally in it for the tech
-    # Update this with a large holder of your want token (the only EOA holder of EURt LP)
-    whale = accounts.at("0x1eb8271d94292d5bb9e043eb94ba0904115eb5f4", force=True)
+    # Update this with a large holder of your want token (andre, holding some ibEUR LPs)
+    whale = accounts.at("0x2D407dDb06311396fE14D4b49da5F0471447d45C", force=True)
     yield whale
 
 
@@ -32,7 +32,7 @@ def amount():
 # this is the name we want to give our strategy
 @pytest.fixture(scope="module")
 def strategy_name():
-    strategy_name = "StrategyCurveEURT"
+    strategy_name = "StrategyCurveibEUR"
     yield strategy_name
 
 
@@ -88,17 +88,17 @@ def farmed():
 
 # Define relevant tokens and contracts in this section
 @pytest.fixture(scope="module")
-def token(pid, booster):
+def token():
     # this should be the address of the ERC-20 used by the strategy/vault
-    token_address = booster.poolInfo(pid)[0]
+    token_address = "0x19b080FE1ffA0553469D20Ca36219F17Fcf03859"
     yield Contract(token_address)
 
 
 # gauge for the curve pool
 @pytest.fixture(scope="module")
-def gauge(pid, booster):
+def gauge():
     # this should be the address of the convex deposit token
-    gauge = booster.poolInfo(pid)[2]
+    gauge = "0x99fb76F75501039089AAC8f20f487bf84E51d76F"
     yield Contract(gauge)
 
 
@@ -107,23 +107,24 @@ def gauge(pid, booster):
 def pool(token, curve_registry):
     zero_address = "0x0000000000000000000000000000000000000000"
     if curve_registry.get_pool_from_lp_token(token) == zero_address:
-        _poolAddress = token
+        poolAddress = token
     else:
         _poolAddress = curve_registry.get_pool_from_lp_token(token)
-    yield Contract(_poolAddress)
+        poolAddress = Contract(_poolAddress)
+    yield poolAddress
 
 
-@pytest.fixture(scope="module")
-def cvxDeposit(booster, pid):
-    # this should be the address of the convex deposit token
-    cvx_address = booster.poolInfo(pid)[1]
-    yield Contract(cvx_address)
+# @pytest.fixture(scope="module")
+# def cvxDeposit(booster, pid):
+#     # this should be the address of the convex deposit token
+#     cvx_address = booster.poolInfo(pid)[1]
+#     yield Contract(cvx_address)
 
 
-@pytest.fixture(scope="module")
-def rewardsContract(pid, booster):
-    rewardsContract = booster.poolInfo(pid)[3]
-    yield Contract(rewardsContract)
+# @pytest.fixture(scope="module")
+# def rewardsContract(pid, booster):
+#     rewardsContract = booster.poolInfo(pid)[3]
+#     yield Contract(rewardsContract)
 
 
 # Define any accounts in this section
@@ -193,7 +194,7 @@ def vault(pm, gov, rewards, guardian, management, token, chain):
 # replace the first value with the name of your strategy
 @pytest.fixture(scope="function")
 def strategy(
-    StrategyCurveEURT,
+    StrategyCurveibEUR,
     strategist,
     keeper,
     vault,
@@ -208,7 +209,7 @@ def strategy(
     gauge,
 ):
     # parameters for this are: strategy, vault, max deposit, minTimePerInvest, slippage protection (10000 = 100% slippage allowed),
-    strategy = strategist.deploy(StrategyCurveEURT, vault, pool, gauge, strategy_name)
+    strategy = strategist.deploy(StrategyCurveibEUR, vault, pool, gauge, strategy_name)
     strategy.setKeeper(keeper, {"from": gov})
     # set our management fee to zero so it doesn't mess with our profit checking
     vault.setManagementFee(0, {"from": gov})

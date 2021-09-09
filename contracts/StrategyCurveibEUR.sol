@@ -17,29 +17,6 @@ import {
     StrategyParams
 } from "@yearnvaults/contracts/BaseStrategy.sol";
 
-interface IUniV3 {
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    function exactInput(ExactInputParams calldata params)
-        external
-        payable
-        returns (uint256 amountOut);
-}
-
-interface IOracle {
-    function ethToAsset(
-        uint256 _ethAmountIn,
-        address _tokenOut,
-        uint32 _twapPeriod
-    ) external view returns (uint256 amountOut);
-}
-
 abstract contract StrategyCurveBase is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -197,11 +174,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
         keepCRV = _keepCRV;
     }
 
-    // This allows us to change the name of a strategy
-    function setName(string calldata _stratName) external onlyAuthorized {
-        stratName = _stratName;
-    }
-
     // This allows us to manually harvest with our keeper as needed
     function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce)
         external
@@ -211,19 +183,13 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveEURT is StrategyCurveBase {
+contract StrategyCurveibEUR is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
-    // Uniswap stuff
-    IOracle public constant oracle =
-        IOracle(0x0F1f5A87f99f0918e6C81F16E59F3518698221Ff); // this is only needed for strats that use uniV3 for swaps
-    address public constant uniswapv3 =
-        0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    IERC20 public constant usdt =
-        IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-    IERC20 public constant eurt =
-        IERC20(0xC581b735A1688071A1746c968e0798D642EDE491);
+    // swap stuff
+    IERC20 public constant ibeur =
+        IERC20(0x96E61422b6A9bA0e068B6c5ADd4fFaBC6a4aae27);
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -256,11 +222,10 @@ contract StrategyCurveEURT is StrategyCurveBase {
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        eurt.approve(address(curve), type(uint256).max);
-        weth.approve(uniswapv3, type(uint256).max);
+        ibeur.approve(address(curve), type(uint256).max);
 
         // crv token path
-        crvPath = [address(crv), address(weth)];
+        crvPath = [address(crv), address(weth), address(ibeur)];
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -295,16 +260,10 @@ contract StrategyCurveEURT is StrategyCurveBase {
                     _sell(_crvRemainder);
                 }
 
-                // convert our WETH to EURt, but don't want to swap dust
-                uint256 _wethBalance = weth.balanceOf(address(this));
-                uint256 _eurtBalance = 0;
-                if (_wethBalance > 0) {
-                    _eurtBalance = _sellWethForEurt(_wethBalance);
-                }
-
-                // deposit our EURt to Curve if we have any
-                if (_eurtBalance > 0) {
-                    curve.add_liquidity([_eurtBalance, 0], 0);
+                // deposit our ibEUR to Curve if we have any
+                uint256 _ibeurBalance = ibeur.balanceOf(address(this));
+                if (_ibeurBalance > 0) {
+                    curve.add_liquidity([_ibeurBalance, 0], 0);
                 }
             }
         }
@@ -352,29 +311,8 @@ contract StrategyCurveEURT is StrategyCurveBase {
             uint256(0),
             crvPath,
             address(this),
-            now
+            block.timestamp
         );
-    }
-
-    // Sells our WETH for EURt
-    function _sellWethForEurt(uint256 _amount) internal returns (uint256) {
-        uint256 _eurtOutput =
-            IUniV3(uniswapv3).exactInput(
-                IUniV3.ExactInputParams(
-                    abi.encodePacked(
-                        address(weth),
-                        uint24(500),
-                        address(usdt),
-                        uint24(500),
-                        address(eurt)
-                    ),
-                    address(this),
-                    now,
-                    _amount,
-                    uint256(1)
-                )
-            );
-        return _eurtOutput;
     }
 
     /* ========== KEEP3RS ========== */
@@ -388,9 +326,22 @@ contract StrategyCurveEURT is StrategyCurveBase {
     {
         uint256 callCostInWant;
         if (_ethAmount > 0) {
-            uint256 callCostInEur =
-                oracle.ethToAsset(_ethAmount, address(eurt), 1800);
-            callCostInWant = curve.calc_token_amount([callCostInEur, 0], true);
+            address[] memory ethPath = new address[](2);
+            ethPath[0] = address(weth);
+            ethPath[1] = address(ibeur);
+
+            uint256[] memory _callCostInIbeurTuple =
+                IUniswapV2Router02(sushiswap).getAmountsOut(
+                    _ethAmount,
+                    ethPath
+                );
+
+            uint256 _callCostInIbeur =
+                _callCostInIbeurTuple[_callCostInIbeurTuple.length - 1];
+            callCostInWant = curve.calc_token_amount(
+                [_callCostInIbeur, 0],
+                true
+            );
         }
         return callCostInWant;
     }
