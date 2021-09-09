@@ -266,7 +266,7 @@ def test_odds_and_ends_liquidatePosition(
 
     # Display estimated APR
     print(
-        "\nEstimated EURT APR: ",
+        "\nEstimated ibEUR APR: ",
         "{:.2%}".format(
             ((new_assets - old_assets) * (365)) / (strategy.estimatedTotalAssets())
         ),
@@ -401,7 +401,6 @@ def test_odds_and_ends_inactive_strat(
     chain,
     strategist_ms,
     voter,
-    cvxDeposit,
     amount,
 ):
     ## deposit to the vault after approving
