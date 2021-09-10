@@ -5,7 +5,7 @@ import math
 
 
 def test_migration(
-    StrategyCurveibEUR,
+    StrategyCurveibFFClonable,
     gov,
     token,
     vault,
@@ -20,6 +20,7 @@ def test_migration(
     amount,
     pool,
     strategy_name,
+    ibToken,
     gauge,
 ):
 
@@ -32,7 +33,7 @@ def test_migration(
 
     # deploy our new strategy
     new_strategy = strategist.deploy(
-        StrategyCurveibEUR, vault, pool, gauge, strategy_name
+        StrategyCurveibFFClonable, vault, pool, gauge, ibToken, strategy_name
     )
     total_old = strategy.estimatedTotalAssets()
 

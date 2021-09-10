@@ -36,6 +36,11 @@ def strategy_name():
     yield strategy_name
 
 
+@pytest.fixture(scope="module")
+def ibToken():  # this is the token we swap CRV for and then deposit to our LP
+    yield Contract("0x96E61422b6A9bA0e068B6c5ADd4fFaBC6a4aae27")
+
+
 # Only worry about changing things above this line, unless you want to make changes to the vault or strategy.
 # ----------------------------------------------------------------------- #
 
@@ -194,7 +199,7 @@ def vault(pm, gov, rewards, guardian, management, token, chain):
 # replace the first value with the name of your strategy
 @pytest.fixture(scope="function")
 def strategy(
-    StrategyCurveibEUR,
+    StrategyCurveibFFClonable,
     strategist,
     keeper,
     vault,
@@ -206,10 +211,13 @@ def strategy(
     proxy,
     pool,
     strategy_name,
+    ibToken,
     gauge,
 ):
     # parameters for this are: strategy, vault, max deposit, minTimePerInvest, slippage protection (10000 = 100% slippage allowed),
-    strategy = strategist.deploy(StrategyCurveibEUR, vault, pool, gauge, strategy_name)
+    strategy = strategist.deploy(
+        StrategyCurveibFFClonable, vault, pool, gauge, ibToken, strategy_name
+    )
     strategy.setKeeper(keeper, {"from": gov})
     # set our management fee to zero so it doesn't mess with our profit checking
     vault.setManagementFee(0, {"from": gov})

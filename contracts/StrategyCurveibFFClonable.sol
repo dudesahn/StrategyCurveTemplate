@@ -23,8 +23,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // these should stay the same across different wants.
 
     // curve infrastructure contracts
-    ICurveStrategyProxy public proxy =
-        ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152); // Yearn's Updated v4 StrategyProxy
+    ICurveStrategyProxy public proxy; // Below we set it to Yearn's Updated v4 StrategyProxy
     ICurveFi public curve; // Curve Pool, need this for depositing into our curve pool
     address public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
 
@@ -178,13 +177,15 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveibEUR is StrategyCurveBase {
+contract StrategyCurveibFFClonable is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
     // swap stuff
-    IERC20 public constant ibeur =
-        IERC20(0x96E61422b6A9bA0e068B6c5ADd4fFaBC6a4aae27);
+    IERC20 public ibToken;
+
+    // check for cloning
+    bool internal isOriginal = true;
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -192,13 +193,89 @@ contract StrategyCurveibEUR is StrategyCurveBase {
         address _vault,
         address _curvePool,
         address _gauge,
+        address _ibToken,
         string memory _name
     ) public StrategyCurveBase(_vault) {
+        _initializeStrat(_curvePool, _gauge, _ibToken, _name);
+    }
+
+    /* ========== CLONING ========== */
+
+    event Cloned(address indexed clone);
+
+    // we use this to clone our original strategy to other vaults
+    function cloneCurveibFF(
+        address _vault,
+        address _strategist,
+        address _rewards,
+        address _keeper,
+        address _curvePool,
+        address _gauge,
+        address _ibToken,
+        string memory _name
+    ) external returns (address newStrategy) {
+        require(isOriginal);
+        // Copied from https://github.com/optionality/clone-factory/blob/master/contracts/CloneFactory.sol
+        bytes20 addressBytes = bytes20(address(this));
+        assembly {
+            // EIP-1167 bytecode
+            let clone_code := mload(0x40)
+            mstore(
+                clone_code,
+                0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000
+            )
+            mstore(add(clone_code, 0x14), addressBytes)
+            mstore(
+                add(clone_code, 0x28),
+                0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000
+            )
+            newStrategy := create(0, clone_code, 0x37)
+        }
+
+        StrategyCurveibFFClonable(newStrategy).initialize(
+            _vault,
+            _strategist,
+            _rewards,
+            _keeper,
+            _curvePool,
+            _gauge,
+            _ibToken,
+            _name
+        );
+
+        emit Cloned(newStrategy);
+    }
+
+    // this will only be called by the clone function above
+    function initialize(
+        address _vault,
+        address _strategist,
+        address _rewards,
+        address _keeper,
+        address _curvePool,
+        address _gauge,
+        address _ibToken,
+        string memory _name
+    ) public {
+        _initialize(_vault, _strategist, _rewards, _keeper);
+        _initializeStrat(_curvePool, _gauge, _ibToken, _name);
+    }
+
+    // this is called by our original strategy, as well as any clones
+    function _initializeStrat(
+        address _curvePool,
+        address _gauge,
+        address _ibToken,
+        string memory _name
+    ) internal {
         // You can set these parameters on deployment to whatever you want
         maxReportDelay = 7 days; // 7 days in seconds
         debtThreshold = 5 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
         profitFactor = 10_000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
+
+        // need to set our proxy again when cloning since it's not a constant
+        proxy = ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152);
 
         // these are our standard approvals. want = Curve LP token
         want.approve(address(proxy), type(uint256).max);
@@ -216,11 +293,14 @@ contract StrategyCurveibEUR is StrategyCurveBase {
         // set our strategy's name
         stratName = _name;
 
+        // set our token to swap for and deposit with
+        ibToken = IERC20(_ibToken);
+
         // these are our approvals and path specific to this contract
-        ibeur.approve(address(curve), type(uint256).max);
+        ibToken.approve(address(curve), type(uint256).max);
 
         // crv token path
-        crvPath = [address(crv), address(weth), address(ibeur)];
+        crvPath = [address(crv), address(weth), address(ibToken)];
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -256,9 +336,9 @@ contract StrategyCurveibEUR is StrategyCurveBase {
                 }
 
                 // deposit our ibEUR to Curve if we have any
-                uint256 _ibeurBalance = ibeur.balanceOf(address(this));
-                if (_ibeurBalance > 0) {
-                    curve.add_liquidity([_ibeurBalance, 0], 0);
+                uint256 _ibTokenBalance = ibToken.balanceOf(address(this));
+                if (_ibTokenBalance > 0) {
+                    curve.add_liquidity([_ibTokenBalance, 0], 0);
                 }
             }
         }
@@ -323,18 +403,18 @@ contract StrategyCurveibEUR is StrategyCurveBase {
         if (_ethAmount > 0) {
             address[] memory ethPath = new address[](2);
             ethPath[0] = address(weth);
-            ethPath[1] = address(ibeur);
+            ethPath[1] = address(ibToken);
 
-            uint256[] memory _callCostInIbeurTuple =
+            uint256[] memory _callCostInIbTokenTuple =
                 IUniswapV2Router02(sushiswap).getAmountsOut(
                     _ethAmount,
                     ethPath
                 );
 
-            uint256 _callCostInIbeur =
-                _callCostInIbeurTuple[_callCostInIbeurTuple.length - 1];
+            uint256 _callCostInIbToken =
+                _callCostInIbTokenTuple[_callCostInIbTokenTuple.length - 1];
             callCostInWant = curve.calc_token_amount(
-                [_callCostInIbeur, 0],
+                [_callCostInIbToken, 0],
                 true
             );
         }
