@@ -35,10 +35,7 @@ contract StrategyCurve2Crv is StrategyCurveBaseUsingGauge {
     // rewards token info. we can have more than 1 reward token but this is rare, so we don't include this in the template
     IERC20 public rewardsToken;
     bool public hasRewards;
-
-    // Target trades
-    address public rewardsTarget;
-    address public crvTarget;
+    address public tradeTarget;
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -64,7 +61,6 @@ contract StrategyCurve2Crv is StrategyCurveBaseUsingGauge {
           if (_hasRewards) {
               hasRewards = true;
               rewardsToken = IERC20(_rewardsToken);
-              rewardsTarget = address(dai);
           }
 
           // this is the pool specific to this vault, but we only use it as an address
@@ -82,7 +78,7 @@ contract StrategyCurve2Crv is StrategyCurveBaseUsingGauge {
           want.approve(address(gauge), type(uint256).max);
 
           // start off with dai
-          crvTarget = address(dai);
+          tradeTarget = address(dai);
     }
 
 
@@ -116,14 +112,14 @@ contract StrategyCurve2Crv is StrategyCurveBaseUsingGauge {
 
                 // sell the rest of our CRV
                 if (_crvRemainder > 0) {
-                    _sell(address(crv), crvTarget, _crvRemainder);
+                    _sell(address(crv), tradeTarget, _crvRemainder);
                 }
 
                 if (hasRewards) {
                     uint256 _rewardsBalance =
                         rewardsToken.balanceOf(address(this));
                     if (_rewardsBalance > 0) {
-                        _sell(address(rewardsToken), rewardsTarget, _rewardsBalance);
+                        _sell(address(rewardsToken), tradeTarget, _rewardsBalance);
                     }
                 }
             }
@@ -195,11 +191,13 @@ contract StrategyCurve2Crv is StrategyCurveBaseUsingGauge {
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
 
+    function setTradeTarget(address _tradeTarget) external onlyAuthorized {
+        tradeTarget = _tradeTarget;
+    }
+
     // Use to add or update rewards
     function updateRewards(address _rewardsToken) external onlyGovernance {
         rewardsToken = IERC20(_rewardsToken);
-        // update with our new token, use dai as default
-        rewardsTarget = address(dai);
         hasRewards = true;
     }
 

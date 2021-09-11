@@ -25,7 +25,7 @@ abstract contract StrategyCurveBaseUsingGauge is BaseStrategyWithSwapperEnabled 
     IGauge public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
 
     // keepCRV stuff
-    uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
+    uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points). Usually 1_000 (10%)
     uint256 public constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in bips
 
     bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
