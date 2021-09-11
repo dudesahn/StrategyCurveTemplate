@@ -12,171 +12,9 @@ import "@openzeppelin/contracts/math/Math.sol";
 import "./interfaces/curve.sol";
 import "./interfaces/yearn.sol";
 import {IUniswapV2Router02} from "./interfaces/uniswap.sol";
-import {BaseStrategy} from "@yearnvaults/contracts/BaseStrategy.sol";
+import "./StrategyCurveBaseUsingProxy.sol";
 
-abstract contract StrategyCurveBase is BaseStrategy {
-    using SafeERC20 for IERC20;
-    using Address for address;
-    using SafeMath for uint256;
-
-    /* ========== STATE VARIABLES ========== */
-    // these should stay the same across different wants.
-
-    // curve infrastructure contracts
-    ICurveStrategyProxy public proxy; // Below we set it to Yearn's Updated v4 StrategyProxy
-    address public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
-
-    // keepCRV stuff
-    uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
-    uint256 public constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in bips
-    address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
-
-    // swap stuff
-    address public constant sushiswap =
-        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV liquidity there
-    address[] public crvPath;
-
-    IERC20 public constant crv =
-        IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
-    IERC20 public constant weth =
-        IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-
-    bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
-
-    string internal stratName; // set our strategy name here
-
-    /* ========== CONSTRUCTOR ========== */
-
-    constructor(address _vault) public BaseStrategy(_vault) {}
-
-    /* ========== VIEWS ========== */
-
-    function name() external view override returns (string memory) {
-        return stratName;
-    }
-
-    function stakedBalance() public view returns (uint256) {
-        return proxy.balanceOf(gauge);
-    }
-
-    function balanceOfWant() public view returns (uint256) {
-        return want.balanceOf(address(this));
-    }
-
-    function estimatedTotalAssets() public view override returns (uint256) {
-        return balanceOfWant().add(stakedBalance());
-    }
-
-    /* ========== MUTATIVE FUNCTIONS ========== */
-    // these should stay the same across different wants.
-
-    function adjustPosition(uint256 _debtOutstanding) internal override {
-        if (emergencyExit) {
-            return;
-        }
-        // Send all of our LP tokens to the proxy and deposit to the gauge if we have any
-        uint256 _toInvest = balanceOfWant();
-        if (_toInvest > 0) {
-            want.safeTransfer(address(proxy), _toInvest);
-            proxy.deposit(gauge, address(want));
-        }
-    }
-
-    function liquidatePosition(uint256 _amountNeeded)
-        internal
-        override
-        returns (uint256 _liquidatedAmount, uint256 _loss)
-    {
-        uint256 _wantBal = balanceOfWant();
-        if (_amountNeeded > _wantBal) {
-            // check if we have enough free funds to cover the withdrawal
-            uint256 _stakedBal = stakedBalance();
-            if (_stakedBal > 0) {
-                proxy.withdraw(
-                    gauge,
-                    address(want),
-                    Math.min(_stakedBal, _amountNeeded.sub(_wantBal))
-                );
-            }
-            uint256 _withdrawnBal = balanceOfWant();
-            _liquidatedAmount = Math.min(_amountNeeded, _withdrawnBal);
-            _loss = _amountNeeded.sub(_liquidatedAmount);
-        } else {
-            // we have enough balance to cover the liquidation available
-            return (_amountNeeded, 0);
-        }
-    }
-
-    // fire sale, get rid of it all!
-    function liquidateAllPositions() internal override returns (uint256) {
-        uint256 _stakedBal = stakedBalance();
-        if (_stakedBal > 0) {
-            // don't bother withdrawing zero
-            proxy.withdraw(gauge, address(want), _stakedBal);
-        }
-        return balanceOfWant();
-    }
-
-    function prepareMigration(address _newStrategy) internal override {
-        uint256 _stakedBal = stakedBalance();
-        if (_stakedBal > 0) {
-            proxy.withdraw(gauge, address(want), _stakedBal);
-        }
-    }
-
-    function protectedTokens()
-        internal
-        view
-        override
-        returns (address[] memory)
-    {}
-
-    /* ========== KEEP3RS ========== */
-
-    function harvestTrigger(uint256 callCostinEth)
-        public
-        view
-        override
-        returns (bool)
-    {
-        // trigger if we want to manually harvest
-        if (forceHarvestTriggerOnce) {
-            return true;
-        }
-
-        // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
-        if (!isActive()) {
-            return false;
-        }
-
-        return super.harvestTrigger(callCostinEth);
-    }
-
-    /* ========== SETTERS ========== */
-
-    // These functions are useful for setting parameters of the strategy that may need to be adjusted.
-
-    // Use to update Yearn's StrategyProxy contract as needed in case of upgrades.
-    function setProxy(address _proxy) external onlyGovernance {
-        proxy = ICurveStrategyProxy(_proxy);
-    }
-
-    // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
-    function setKeepCRV(uint256 _keepCRV) external onlyAuthorized {
-        require(_keepCRV <= 10_000);
-        keepCRV = _keepCRV;
-    }
-
-    // This allows us to manually harvest with our keeper as needed
-    function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce)
-        external
-        onlyAuthorized
-    {
-        forceHarvestTriggerOnce = _forceHarvestTriggerOnce;
-    }
-}
-
-contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
+contract StrategyCurve3CrvRewardsClonable is StrategyCurveBaseUsingProxy {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -184,6 +22,18 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     address public curve; // This is our pool specific to this vault. Use it with zap contract to specify our correct pool.
     ICurveFi public constant zapContract =
         ICurveFi(0xA79828DF1850E8a3A3064576f380D90aECDD3359); // this is used for depositing to all 3Crv metapools
+
+    IERC20 public constant crv =
+        IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
+
+    // swap stuff
+    address public constant sushiswap =
+        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV liquidity there
+    address[] public crvPath;
+    IERC20 public constant weth =
+        IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+
+    address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
 
     // we use these to deposit to our curve pool
     uint256 public optimal; // this is the optimal token to deposit back to our curve pool. 0 DAI, 1 USDC, 2 USDT
@@ -211,7 +61,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         bool _hasRewards,
         address _rewardsToken,
         string memory _name
-    ) public StrategyCurveBase(_vault) {
+    ) public StrategyCurveBaseUsingProxy(_vault) {
         _initializeStrat(_curvePool, _gauge, _hasRewards, _rewardsToken, _name);
     }
 
@@ -319,7 +169,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         curve = address(_curvePool);
 
         // set our curve gauge contract
-        gauge = address(_gauge);
+        gauge = IGauge(_gauge);
 
         // set our strategy's name
         stratName = _name;
@@ -348,7 +198,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         // if we have anything in the gauge, then harvest CRV from the gauge
         uint256 _stakedBal = stakedBalance();
         if (_stakedBal > 0) {
-            proxy.harvest(gauge);
+            proxy.harvest(address(gauge));
             uint256 _crvBalance = crv.balanceOf(address(this));
             // if we claimed any CRV, then sell it
             if (_crvBalance > 0) {
@@ -366,7 +216,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
                 }
 
                 if (hasRewards) {
-                    proxy.claimRewards(gauge, address(rewardsToken));
+                    proxy.claimRewards(address(gauge), address(rewardsToken));
                     uint256 _rewardsBalance =
                         rewardsToken.balanceOf(address(this));
                     if (_rewardsBalance > 0) {
@@ -393,7 +243,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             if (_stakedBal > 0) {
                 // don't bother withdrawing if we don't have staked funds
                 proxy.withdraw(
-                    gauge,
+                    address(gauge),
                     address(want),
                     Math.min(_stakedBal, _debtOutstanding)
                 );

@@ -18,8 +18,7 @@ def pid():
 def whale(accounts):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0x78aad3B7e06CD91b88c34B9Add4559Ed8731d59B", force=True)
-    yield whale
+    yield accounts.at("0x6255cb7a706314835a22889500c8d55130912926", force=True)
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
