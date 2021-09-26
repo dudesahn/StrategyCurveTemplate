@@ -22,6 +22,9 @@ def test_triggers(
     newWhale = token.balanceOf(whale)
     starting_assets = vault.totalAssets()
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -66,6 +69,9 @@ def test_less_useful_triggers(
     newWhale = token.balanceOf(whale)
     starting_assets = vault.totalAssets()
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 

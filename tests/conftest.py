@@ -1,5 +1,6 @@
 import pytest
 from brownie import config, Wei, Contract
+from eth_abi import encode_single
 
 # Snapshots the chain before each test and reverts after test completion.
 @pytest.fixture(autouse=True)
@@ -8,24 +9,24 @@ def isolation(fn_isolation):
 
 
 # put our pool's convex pid here; this is the only thing that should need to change up here **************
-# @pytest.fixture(scope="module")
-# def pid():
-#     pid = 39
-#     yield pid
+@pytest.fixture(scope="module")
+def pid():
+    pid = 45
+    yield pid
 
 
 @pytest.fixture(scope="module")
 def whale(accounts):
     # Totally in it for the tech
-    # Update this with a large holder of your want token (andre, holding some ibEUR LPs)
-    whale = accounts.at("0x2D407dDb06311396fE14D4b49da5F0471447d45C", force=True)
+    # Update this with a large holder of your want token (attenboro.eth, holding some ibEUR LPs)
+    whale = accounts.at("0x4D0e439ba905EB39aee88097433aDd619cf5257b", force=True)
     yield whale
 
 
-# this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
+# this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance. Make sure to do no more than half of their balance.
 @pytest.fixture(scope="module")
 def amount():
-    amount = 20e18
+    amount = 20_000e18
     yield amount
 
 
@@ -37,8 +38,8 @@ def strategy_name():
 
 
 @pytest.fixture(scope="module")
-def ibToken():  # this is the token we swap CRV for and then deposit to our LP
-    yield Contract("0x96E61422b6A9bA0e068B6c5ADd4fFaBC6a4aae27")
+def sToken():  # this is the token we swap CRV for and then deposit to our LP
+    yield Contract("0xD71eCFF9342A5Ced620049e616c5035F1dB98620")
 
 
 # Only worry about changing things above this line, unless you want to make changes to the vault or strategy.
@@ -119,17 +120,17 @@ def pool(token, curve_registry):
     yield poolAddress
 
 
-# @pytest.fixture(scope="module")
-# def cvxDeposit(booster, pid):
-#     # this should be the address of the convex deposit token
-#     cvx_address = booster.poolInfo(pid)[1]
-#     yield Contract(cvx_address)
+@pytest.fixture(scope="module")
+def cvxDeposit(booster, pid):
+    # this should be the address of the convex deposit token
+    cvx_address = booster.poolInfo(pid)[1]
+    yield Contract(cvx_address)
 
 
-# @pytest.fixture(scope="module")
-# def rewardsContract(pid, booster):
-#     rewardsContract = booster.poolInfo(pid)[3]
-#     yield Contract(rewardsContract)
+@pytest.fixture(scope="module")
+def rewardsContract(pid, booster):
+    rewardsContract = booster.poolInfo(pid)[3]
+    yield Contract(rewardsContract)
 
 
 # Define any accounts in this section
@@ -199,7 +200,7 @@ def vault(pm, gov, rewards, guardian, management, token, chain):
 # replace the first value with the name of your strategy
 @pytest.fixture(scope="function")
 def strategy(
-    StrategyCurveibFFClonable,
+    StrategyCurveFixedForexClonable,
     strategist,
     keeper,
     vault,
@@ -211,12 +212,21 @@ def strategy(
     proxy,
     pool,
     strategy_name,
-    ibToken,
+    sToken,
     gauge,
+    accounts,
 ):
+    # force open the markets if they're closed
+    _target = sToken.target()
+    target = Contract(_target)
+    currencyKey = [target.currencyKey()]
+    systemStatus = Contract("0x1c86B3CDF2a60Ae3a574f7f71d44E2C50BDdB87E")
+    synthGod = accounts.at("0xc105ea57eb434fbe44690d7dec2702e4a2fbfcf7", force=True)
+    systemStatus.resumeSynthsExchange(currencyKey, {"from": synthGod})
+
     # parameters for this are: strategy, vault, max deposit, minTimePerInvest, slippage protection (10000 = 100% slippage allowed),
     strategy = strategist.deploy(
-        StrategyCurveibFFClonable, vault, pool, gauge, ibToken, strategy_name
+        StrategyCurveFixedForexClonable, vault, pool, gauge, sToken, strategy_name
     )
     strategy.setKeeper(keeper, {"from": gov})
     # set our management fee to zero so it doesn't mess with our profit checking
@@ -227,6 +237,9 @@ def strategy(
     strategy.setHealthCheck(healthCheck, {"from": gov})
     strategy.setDoHealthCheck(True, {"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
     yield strategy

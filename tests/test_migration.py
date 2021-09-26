@@ -5,7 +5,7 @@ import math
 
 
 def test_migration(
-    StrategyCurveibFFClonable,
+    StrategyCurveFixedForexClonable,
     gov,
     token,
     vault,
@@ -20,7 +20,7 @@ def test_migration(
     amount,
     pool,
     strategy_name,
-    ibToken,
+    sToken,
     gauge,
 ):
 
@@ -28,12 +28,15 @@ def test_migration(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # deploy our new strategy
     new_strategy = strategist.deploy(
-        StrategyCurveibFFClonable, vault, pool, gauge, ibToken, strategy_name
+        StrategyCurveFixedForexClonable, vault, pool, gauge, sToken, strategy_name
     )
     total_old = strategy.estimatedTotalAssets()
 
@@ -42,8 +45,8 @@ def test_migration(
     print("\nShould we harvest? Should be False.", tx)
     assert tx == False
 
-    # simulate 1 day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # migrate our old strategy
@@ -69,8 +72,8 @@ def test_migration(
     startingVault = vault.totalAssets()
     print("\nVault starting assets with new strategy: ", startingVault)
 
-    # simulate one day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # Test out our migrated strategy, confirm we're making a profit

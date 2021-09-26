@@ -18,10 +18,13 @@ def test_change_debt_with_profit(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
 
     # sleep long enough to make uniswap v3 happy (need minimum out)
-    chain.sleep(86400)
+    chain.sleep(3600)
 
     prev_params = vault.strategies(strategy).dict()
 
@@ -40,6 +43,9 @@ def test_change_debt_with_profit(
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
 

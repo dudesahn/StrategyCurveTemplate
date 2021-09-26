@@ -18,19 +18,28 @@ def test_emergency_exit(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    # simulate 1 day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # set emergency and exit, then confirm that the strategy has no funds
     strategy.setEmergencyExit({"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
     assert strategy.estimatedTotalAssets() == 0
@@ -59,13 +68,19 @@ def test_emergency_exit_with_profit(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    # simulate 1 day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -75,6 +90,9 @@ def test_emergency_exit_with_profit(
     strategy.setDoHealthCheck(False, {"from": gov})
     strategy.setEmergencyExit({"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
     assert strategy.estimatedTotalAssets() == 0
@@ -105,6 +123,9 @@ def test_emergency_exit_with_no_gain_or_loss(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -122,6 +143,9 @@ def test_emergency_exit_with_no_gain_or_loss(
     strategy.setEmergencyExit({"from": gov})
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
     assert strategy.estimatedTotalAssets() == 0

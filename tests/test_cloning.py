@@ -12,14 +12,14 @@ def test_cloning(
     keeper,
     rewards,
     chain,
-    StrategyCurveibFFClonable,
+    StrategyCurveFixedForexClonable,
     voter,
     proxy,
     amount,
     pool,
     strategy_name,
     gauge,
-    ibToken,
+    sToken,
 ):
     # Shouldn't be able to call initialize again
     with brownie.reverts():
@@ -30,7 +30,7 @@ def test_cloning(
             keeper,
             pool,
             gauge,
-            ibToken,
+            sToken,
             strategy_name,
             {"from": gov},
         )
@@ -43,11 +43,11 @@ def test_cloning(
         keeper,
         pool,
         gauge,
-        ibToken,
+        sToken,
         strategy_name,
         {"from": gov},
     )
-    newStrategy = StrategyCurveibFFClonable.at(tx.return_value)
+    newStrategy = StrategyCurveFixedForexClonable.at(tx.return_value)
 
     # Shouldn't be able to call initialize again
     with brownie.reverts():
@@ -58,13 +58,16 @@ def test_cloning(
             keeper,
             pool,
             gauge,
-            ibToken,
+            sToken,
             strategy_name,
             {"from": gov},
         )
 
     # revoke and send all funds back to vault
     vault.revokeStrategy(strategy, {"from": gov})
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
 
     # attach our new strategy and approve it on the proxy
@@ -80,9 +83,11 @@ def test_cloning(
     before_pps = vault.pricePerShare()
     startingWhale = token.balanceOf(whale)
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
-    vault.deposit(1000e18, {"from": whale})
+    vault.deposit(20000e18, {"from": whale})
 
     # harvest, store asset amount
+    newStrategy.tend({"from": gov})
+    chain.sleep(361)
     tx = newStrategy.harvest({"from": gov})
     old_assets_dai = vault.totalAssets()
     assert old_assets_dai > 0
@@ -92,22 +97,24 @@ def test_cloning(
     print("\nStarting Assets: ", old_assets_dai / 1e18)
     print("\nAssets Staked: ", gauge.balanceOf(voter) / 1e18)
 
-    # simulate 1 day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # harvest after a day, store new asset amount
+    newStrategy.tend({"from": gov})
+    chain.sleep(361)
     newStrategy.harvest({"from": gov})
     new_assets_dai = vault.totalAssets()
     # we can't use strategyEstimated Assets because the profits are sent to the vault
     assert new_assets_dai >= old_assets_dai
     print("\nAssets after 2 days: ", new_assets_dai / 1e18)
 
-    # Display estimated APR based on the two days before the pay out
+    # Display estimated APR
     print(
         "\nEstimated ibEUR APR: ",
         "{:.2%}".format(
-            ((new_assets_dai - old_assets_dai) * (365))
+            ((new_assets_dai - old_assets_dai) * (365 * 24))
             / (newStrategy.estimatedTotalAssets())
         ),
     )

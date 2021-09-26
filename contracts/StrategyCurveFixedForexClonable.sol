@@ -12,7 +12,28 @@ import "@openzeppelin/contracts/math/Math.sol";
 import "./interfaces/curve.sol";
 import "./interfaces/yearn.sol";
 import {IUniswapV2Router02} from "./interfaces/uniswap.sol";
-import {BaseStrategy} from "@yearnvaults/contracts/BaseStrategy.sol";
+import {
+    BaseStrategy,
+    StrategyParams
+} from "@yearnvaults/contracts/BaseStrategy.sol";
+
+// these are the libraries to use with synthetix
+import "./interfaces/synthetix.sol";
+
+interface IUniV3 {
+    struct ExactInputParams {
+        bytes path;
+        address recipient;
+        uint256 deadline;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+    }
+
+    function exactInput(ExactInputParams calldata params)
+        external
+        payable
+        returns (uint256 amountOut);
+}
 
 abstract contract StrategyCurveBase is BaseStrategy {
     using SafeERC20 for IERC20;
@@ -42,8 +63,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
     IERC20 public constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
-    bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
-
     string internal stratName; // set our strategy name here
 
     /* ========== CONSTRUCTOR ========== */
@@ -70,18 +89,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     /* ========== MUTATIVE FUNCTIONS ========== */
     // these should stay the same across different wants.
-
-    function adjustPosition(uint256 _debtOutstanding) internal override {
-        if (emergencyExit) {
-            return;
-        }
-        // Send all of our LP tokens to the proxy and deposit to the gauge if we have any
-        uint256 _toInvest = balanceOfWant();
-        if (_toInvest > 0) {
-            want.safeTransfer(address(proxy), _toInvest);
-            proxy.deposit(gauge, address(want));
-        }
-    }
 
     function liquidatePosition(uint256 _amountNeeded)
         internal
@@ -132,27 +139,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
         returns (address[] memory)
     {}
 
-    /* ========== KEEP3RS ========== */
-
-    function harvestTrigger(uint256 callCostinEth)
-        public
-        view
-        override
-        returns (bool)
-    {
-        // trigger if we want to manually harvest
-        if (forceHarvestTriggerOnce) {
-            return true;
-        }
-
-        // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
-        if (!isActive()) {
-            return false;
-        }
-
-        return super.harvestTrigger(callCostinEth);
-    }
-
     /* ========== SETTERS ========== */
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
@@ -167,22 +153,34 @@ abstract contract StrategyCurveBase is BaseStrategy {
         require(_keepCRV <= 10_000);
         keepCRV = _keepCRV;
     }
-
-    // This allows us to manually harvest with our keeper as needed
-    function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce)
-        external
-        onlyAuthorized
-    {
-        forceHarvestTriggerOnce = _forceHarvestTriggerOnce;
-    }
 }
 
-contract StrategyCurveibFFClonable is StrategyCurveBase {
+contract StrategyCurveFixedForexClonable is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
+    // synthetix stuff
+    IReadProxy public sTokenProxy; // this is the proxy for our synthetix token
+    IERC20 public constant sethProxy =
+        IERC20(0x5e74C9036fb86BD7eCdcb084a0673EFc32eA31cb); // this is the proxy for sETH
+    IReadProxy public constant readProxy =
+        IReadProxy(0x4E3b31eB0E5CB73641EE1E65E7dCEFe520bA3ef2);
+
+    ISystemStatus public constant systemStatus =
+        ISystemStatus(0x1c86B3CDF2a60Ae3a574f7f71d44E2C50BDdB87E); // this is how we check if our market is closed
+
+    bytes32 public synthCurrencyKey;
+    bytes32 public constant sethCurrencyKey = "sETH";
+
+    bytes32 internal constant TRACKING_CODE = "YEARN"; // this is our referral code for SNX volume incentives
+    bytes32 internal constant CONTRACT_SYNTHETIX = "Synthetix";
+    bytes32 internal constant CONTRACT_EXCHANGER = "Exchanger";
+
     // swap stuff
-    IERC20 public ibToken;
+    address public constant uniswapv3 =
+        address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    bool public sellOnSushi = true; // determine if we sell partially on sushi or all on Uni v3
+    bool internal harvestNow; // this tells us if we're currently harvesting or tending
 
     // check for cloning
     bool internal isOriginal = true;
@@ -193,10 +191,10 @@ contract StrategyCurveibFFClonable is StrategyCurveBase {
         address _vault,
         address _curvePool,
         address _gauge,
-        address _ibToken,
+        address _sTokenProxy,
         string memory _name
     ) public StrategyCurveBase(_vault) {
-        _initializeStrat(_curvePool, _gauge, _ibToken, _name);
+        _initializeStrat(_curvePool, _gauge, _sTokenProxy, _name);
     }
 
     /* ========== CLONING ========== */
@@ -211,7 +209,7 @@ contract StrategyCurveibFFClonable is StrategyCurveBase {
         address _keeper,
         address _curvePool,
         address _gauge,
-        address _ibToken,
+        address _sTokenProxy,
         string memory _name
     ) external returns (address newStrategy) {
         require(isOriginal);
@@ -232,14 +230,14 @@ contract StrategyCurveibFFClonable is StrategyCurveBase {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        StrategyCurveibFFClonable(newStrategy).initialize(
+        StrategyCurveFixedForexClonable(newStrategy).initialize(
             _vault,
             _strategist,
             _rewards,
             _keeper,
             _curvePool,
             _gauge,
-            _ibToken,
+            _sTokenProxy,
             _name
         );
 
@@ -254,32 +252,34 @@ contract StrategyCurveibFFClonable is StrategyCurveBase {
         address _keeper,
         address _curvePool,
         address _gauge,
-        address _ibToken,
+        address _sTokenProxy,
         string memory _name
     ) public {
         _initialize(_vault, _strategist, _rewards, _keeper);
-        _initializeStrat(_curvePool, _gauge, _ibToken, _name);
+        _initializeStrat(_curvePool, _gauge, _sTokenProxy, _name);
     }
 
     // this is called by our original strategy, as well as any clones
     function _initializeStrat(
         address _curvePool,
         address _gauge,
-        address _ibToken,
+        address _sTokenProxy,
         string memory _name
     ) internal {
         // You can set these parameters on deployment to whatever you want
         maxReportDelay = 7 days; // 7 days in seconds
         debtThreshold = 5 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
-        profitFactor = 10_000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
+        profitFactor = 1_000_000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
 
         // need to set our proxy again when cloning since it's not a constant
         proxy = ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152);
 
-        // these are our standard approvals. want = Curve LP token
+        // these are our standard approvals for swaps. want = Curve LP token
         want.approve(address(proxy), type(uint256).max);
         crv.approve(sushiswap, type(uint256).max);
+        crv.approve(uniswapv3, type(uint256).max);
+        weth.approve(uniswapv3, type(uint256).max);
 
         // set our keepCRV
         keepCRV = 1000;
@@ -294,13 +294,17 @@ contract StrategyCurveibFFClonable is StrategyCurveBase {
         stratName = _name;
 
         // set our token to swap for and deposit with
-        ibToken = IERC20(_ibToken);
+        sTokenProxy = IReadProxy(_sTokenProxy);
 
         // these are our approvals and path specific to this contract
-        ibToken.approve(address(curve), type(uint256).max);
+        sTokenProxy.approve(address(curve), type(uint256).max);
 
         // crv token path
-        crvPath = [address(crv), address(weth), address(ibToken)];
+        crvPath = [address(crv), address(weth)];
+
+        // set our synth currency key
+        synthCurrencyKey = ISynth(IReadProxy(_sTokenProxy).target())
+            .currencyKey();
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -315,36 +319,18 @@ contract StrategyCurveibFFClonable is StrategyCurveBase {
             uint256 _debtPayment
         )
     {
-        // if we have anything in the gauge, then harvest CRV from the gauge
-        uint256 _stakedBal = stakedBalance();
-        if (_stakedBal > 0) {
-            proxy.harvest(gauge);
-            uint256 _crvBalance = crv.balanceOf(address(this));
-            // if we claimed any CRV, then sell it
-            if (_crvBalance > 0) {
-                // keep some of our CRV to increase our boost
-                uint256 _sendToVoter =
-                    _crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
-                if (keepCRV > 0) {
-                    crv.safeTransfer(voter, _sendToVoter);
-                }
-                uint256 _crvRemainder = _crvBalance.sub(_sendToVoter);
+        // turn on our toggle for harvests
+        harvestNow = true;
 
-                // sell the rest of our CRV
-                if (_crvRemainder > 0) {
-                    _sell(_crvRemainder);
-                }
-
-                // deposit our ibEUR to Curve if we have any
-                uint256 _ibTokenBalance = ibToken.balanceOf(address(this));
-                if (_ibTokenBalance > 0) {
-                    curve.add_liquidity([_ibTokenBalance, 0], 0);
-                }
-            }
+        // deposit our sToken to Curve if we have any and if our trade has finalized
+        uint256 _sTokenProxyBalance = sTokenProxy.balanceOf(address(this));
+        if (_sTokenProxyBalance > 0 && checkWaitingPeriod()) {
+            curve.add_liquidity([0, _sTokenProxyBalance], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
         if (_debtOutstanding > 0) {
+            uint256 _stakedBal = stakedBalance();
             if (_stakedBal > 0) {
                 // don't bother withdrawing if we don't have staked funds
                 proxy.withdraw(
@@ -356,7 +342,6 @@ contract StrategyCurveibFFClonable is StrategyCurveBase {
             uint256 _withdrawnBal = balanceOfWant();
             _debtPayment = Math.min(_debtOutstanding, _withdrawnBal);
         }
-
         // serious loss should never happen, but if it does (for instance, if Curve is hacked), let's record it accurately
         uint256 assets = estimatedTotalAssets();
         uint256 debt = vault.strategies(address(this)).totalDebt;
@@ -374,13 +359,30 @@ contract StrategyCurveibFFClonable is StrategyCurveBase {
         else {
             _loss = debt.sub(assets);
         }
-
-        // we're done harvesting, so reset our trigger if we used it
-        forceHarvestTriggerOnce = false;
     }
 
-    // Sells our harvested CRV into the selected output.
-    function _sell(uint256 _amount) internal {
+    function adjustPosition(uint256 _debtOutstanding) internal override {
+        if (emergencyExit) {
+            return;
+        }
+        if (harvestNow) {
+            // this is a part of a harvest call
+            // Send all of our LP tokens to the proxy and deposit to the gauge if we have any
+            uint256 _toInvest = balanceOfWant();
+            if (_toInvest > 0) {
+                want.safeTransfer(address(proxy), _toInvest);
+                proxy.deposit(gauge, address(want));
+            }
+            // we're done with our harvest, so we turn our toggle back to false
+            harvestNow = false;
+        } else {
+            // this is our tend call
+            claimAndSell();
+        }
+    }
+
+    // sell from CRV into WETH via sushiswap, then sell WETH for sETH on Uni v3
+    function _sellOnSushiFirst(uint256 _amount) internal returns (uint256) {
         IUniswapV2Router02(sushiswap).swapExactTokensForTokens(
             _amount,
             uint256(0),
@@ -388,36 +390,184 @@ contract StrategyCurveibFFClonable is StrategyCurveBase {
             address(this),
             block.timestamp
         );
+
+        uint256 _wethBalance = weth.balanceOf(address(this));
+        uint256 _output =
+            IUniV3(uniswapv3).exactInput(
+                IUniV3.ExactInputParams(
+                    abi.encodePacked(
+                        address(weth),
+                        uint24(500),
+                        address(sethProxy)
+                    ),
+                    address(this),
+                    block.timestamp,
+                    _wethBalance,
+                    uint256(1)
+                )
+            );
+        return _output;
+    }
+
+    // Sells our CRV for sETH all on uni v3
+    function _sellOnUniOnly(uint256 _amount) internal returns (uint256) {
+        uint256 _output =
+            IUniV3(uniswapv3).exactInput(
+                IUniV3.ExactInputParams(
+                    abi.encodePacked(
+                        address(crv),
+                        uint24(10000),
+                        address(weth),
+                        uint24(500),
+                        address(sethProxy)
+                    ),
+                    address(this),
+                    block.timestamp,
+                    _amount,
+                    uint256(1)
+                )
+            );
+        return _output;
     }
 
     /* ========== KEEP3RS ========== */
 
-    // convert our keeper's eth cost into want
+    function harvestTrigger(uint256 callCostinEth)
+        public
+        view
+        override
+        returns (bool)
+    {
+        // check if the 5-minute lock has elapsed yet
+        if (!checkWaitingPeriod()) {
+            return false;
+        }
+
+        // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
+        if (!isActive()) {
+            return false;
+        }
+
+        return super.harvestTrigger(callCostinEth);
+    }
+
+    function tendTrigger(uint256 callCostinEth)
+        public
+        view
+        override
+        returns (bool)
+    {
+        // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
+        if (!isActive()) {
+            return false;
+        }
+
+        // Should trigger if hasn't been called in a while. Running this based on harvest even though this is a tend call since a harvest should run ~5 mins after every tend.
+        StrategyParams memory params = vault.strategies(address(this));
+        if (block.timestamp.sub(params.lastReport) >= maxReportDelay)
+            return true;
+    }
+
+    // convert our keeper's eth cost into want (not applicable, and synths are a pain to swap for, so we removed it)
     function ethToWant(uint256 _ethAmount)
         public
         view
         override
         returns (uint256)
     {
-        uint256 callCostInWant;
-        if (_ethAmount > 0) {
-            address[] memory ethPath = new address[](2);
-            ethPath[0] = address(weth);
-            ethPath[1] = address(ibToken);
+        return _ethAmount;
+    }
 
-            uint256[] memory _callCostInIbTokenTuple =
-                IUniswapV2Router02(sushiswap).getAmountsOut(
-                    _ethAmount,
-                    ethPath
-                );
+    /* ========== SYNTHETIX ========== */
 
-            uint256 _callCostInIbToken =
-                _callCostInIbTokenTuple[_callCostInIbTokenTuple.length - 1];
-            callCostInWant = curve.calc_token_amount(
-                [_callCostInIbToken, 0],
-                true
-            );
+    // claim and swap our CRV for synths
+    function claimAndSell() internal {
+        // if we have anything in the gauge, then harvest CRV from the gauge
+        uint256 _stakedBal = stakedBalance();
+        if (_stakedBal > 0) {
+            proxy.harvest(gauge);
+            uint256 _crvBalance = crv.balanceOf(address(this));
+            // if we claimed any CRV, then sell it
+            if (_crvBalance > 0) {
+                // keep some of our CRV to increase our boost
+                uint256 _sendToVoter =
+                    _crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
+                if (_sendToVoter > 0) {
+                    crv.safeTransfer(voter, _sendToVoter);
+                }
+                uint256 _crvRemainder = _crvBalance.sub(_sendToVoter);
+
+                // sell the rest of our CRV for sETH
+                if (_crvRemainder > 0) {
+                    if (sellOnSushi) {
+                        _sellOnSushiFirst(_crvRemainder);
+                    } else {
+                        _sellOnUniOnly(_crvRemainder);
+                    }
+                }
+
+                // check our output balance of sETH
+                uint256 _sEthBalance = sethProxy.balanceOf(address(this));
+
+                // swap our sETH for our underlying synth if the forex markets are open
+                if (!isMarketClosed()) {
+                    // this check allows us to still tend even if forex markets are closed.
+                    exchangeSEthToSynth(_sEthBalance);
+                }
+            }
         }
-        return callCostInWant;
+    }
+
+    function exchangeSEthToSynth(uint256 amount) internal returns (uint256) {
+        // swap amount of sETH for Synth
+        if (amount == 0) {
+            return 0;
+        }
+
+        return
+            _synthetix().exchangeWithTracking(
+                sethCurrencyKey,
+                amount,
+                synthCurrencyKey,
+                address(this),
+                TRACKING_CODE
+            );
+    }
+
+    function _synthetix() internal view returns (ISynthetix) {
+        return ISynthetix(resolver().getAddress(CONTRACT_SYNTHETIX));
+    }
+
+    function resolver() internal view returns (IAddressResolver) {
+        return IAddressResolver(readProxy.target());
+    }
+
+    function _exchanger() internal view returns (IExchanger) {
+        return IExchanger(resolver().getAddress(CONTRACT_EXCHANGER));
+    }
+
+    function checkWaitingPeriod() internal view returns (bool freeToMove) {
+        return
+            // check if it's been >5 mins since we traded our sETH for our synth
+            _exchanger().maxSecsLeftInWaitingPeriod(
+                address(this),
+                synthCurrencyKey
+            ) == 0;
+    }
+
+    function isMarketClosed() public returns (bool) {
+        // set up our arrays to use
+        bool[] memory tradingSuspended;
+        bytes32[] memory synthArray;
+
+        // use our synth key
+        synthArray = new bytes32[](1);
+        synthArray[0] = synthCurrencyKey;
+
+        // check if trading is open or not. true = market is closed
+        (tradingSuspended, ) = systemStatus.getSynthExchangeSuspensions(
+            synthArray
+        );
+        return tradingSuspended[0];
     }
 }

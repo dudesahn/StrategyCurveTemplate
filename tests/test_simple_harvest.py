@@ -16,6 +16,8 @@ def test_simple_harvest(
     gauge,
     voter,
     amount,
+    crv,
+    sToken,
 ):
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
@@ -28,6 +30,9 @@ def test_simple_harvest(
 
     # harvest, store asset amount
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
     old_assets = vault.totalAssets()
@@ -39,12 +44,15 @@ def test_simple_harvest(
     # try and include custom logic here to check that funds are in the staking contract (if needed)
     assert gauge.balanceOf(voter) > stakingBeforeHarvest
 
-    # simulate 1 day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # harvest, store new asset amount
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
     new_assets = vault.totalAssets()
@@ -56,7 +64,7 @@ def test_simple_harvest(
     print(
         "\nEstimated ibEUR APR: ",
         "{:.2%}".format(
-            ((new_assets - old_assets) * (365)) / (strategy.estimatedTotalAssets())
+            ((new_assets - old_assets) * (365 * 24)) / (strategy.estimatedTotalAssets())
         ),
     )
 

@@ -18,6 +18,9 @@ def test_withdraw_after_donation_1(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -38,13 +41,16 @@ def test_withdraw_after_donation_1(
     # have our whale withdraw half of his donation, this ensures that we test withdrawing without pulling from the staked balance
     vault.withdraw(donation / 2, {"from": whale})
 
-    # simulate one day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
 
@@ -91,6 +97,9 @@ def test_withdraw_after_donation_2(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -111,13 +120,16 @@ def test_withdraw_after_donation_2(
     # have our whale withdraw half of his donation, this ensures that we test withdrawing without pulling from the staked balance
     vault.withdraw(donation / 2, {"from": whale})
 
-    # simulate one day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
 
@@ -161,6 +173,9 @@ def test_withdraw_after_donation_3(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -181,13 +196,16 @@ def test_withdraw_after_donation_3(
     # have our whale withdraws more than his donation, ensuring we pull from strategy
     vault.withdraw(donation + amount / 2, {"from": whale})
 
-    # simulate one day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
 
@@ -231,6 +249,9 @@ def test_withdraw_after_donation_4(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -251,13 +272,16 @@ def test_withdraw_after_donation_4(
     # have our whale withdraws more than his donation, ensuring we pull from strategy
     vault.withdraw(donation + amount / 2, {"from": whale})
 
-    # simulate one day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
 
@@ -308,6 +332,9 @@ def test_withdraw_after_donation_5(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -320,13 +347,16 @@ def test_withdraw_after_donation_5(
     # have our whale withdraws more than his donation, ensuring we pull from strategy
     vault.withdraw(donation + amount / 2, {"from": whale})
 
-    # simulate one day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
 
@@ -370,6 +400,9 @@ def test_withdraw_after_donation_6(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -382,13 +415,16 @@ def test_withdraw_after_donation_6(
     # have our whale withdraws more than his donation, ensuring we pull from strategy
     vault.withdraw(donation / 2, {"from": whale})
 
-    # simulate one day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     new_params = vault.strategies(strategy).dict()
 
@@ -434,6 +470,9 @@ def test_withdraw_after_donation_7(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -456,8 +495,8 @@ def test_withdraw_after_donation_7(
     withdrawal = donation + amount / 2
     vault.withdraw(withdrawal, {"from": whale})
 
-    # simulate one day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # We harvest twice to take profits and then to send the funds to our strategy. This is for our last check below.
@@ -465,6 +504,9 @@ def test_withdraw_after_donation_7(
 
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
 
     # check everywhere to make sure we emptied out the strategy
@@ -516,6 +558,9 @@ def test_withdraw_after_donation_8(
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
@@ -538,8 +583,8 @@ def test_withdraw_after_donation_8(
     withdrawal = donation / 2
     vault.withdraw(withdrawal, {"from": whale})
 
-    # simulate one day of earnings
-    chain.sleep(86400)
+    # simulate 1 hour of earnings (so chainlink oracles don't go stale, normally would do 1 day)
+    chain.sleep(3600)
     chain.mine(1)
 
     # We harvest twice to take profits and then to send the funds to our strategy. This is for our last check below.
@@ -547,6 +592,9 @@ def test_withdraw_after_donation_8(
 
     # turn off health check since we just took big profit
     strategy.setDoHealthCheck(False, {"from": gov})
+    strategy.tend({"from": gov})
+    chain.mine(1)
+    chain.sleep(361)
     strategy.harvest({"from": gov})
 
     # check everywhere to make sure we emptied out the strategy
