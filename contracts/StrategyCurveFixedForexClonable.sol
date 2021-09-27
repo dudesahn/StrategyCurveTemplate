@@ -181,6 +181,7 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
         address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     bool public sellOnSushi = true; // determine if we sell partially on sushi or all on Uni v3
     bool internal harvestNow; // this tells us if we're currently harvesting or tending
+    uint24 public uniCrvFee; // this is equal to 1%, can change this later if a different path becomes more optimal
 
     // check for cloning
     bool internal isOriginal = true;
@@ -284,6 +285,9 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
         // set our keepCRV
         keepCRV = 1000;
 
+        // set our fee for univ3 pool
+        uniCrvFee = 10000;
+
         // this is the pool specific to this vault, used for depositing
         curve = ICurveFi(_curvePool);
 
@@ -292,6 +296,9 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
 
         // set our strategy's name
         stratName = _name;
+
+        // start off using sushi
+        sellOnSushi = true;
 
         // set our token to swap for and deposit with
         sTokenProxy = IReadProxy(_sTokenProxy);
@@ -382,7 +389,7 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
     }
 
     // sell from CRV into WETH via sushiswap, then sell WETH for sETH on Uni v3
-    function _sellOnSushiFirst(uint256 _amount) internal returns (uint256) {
+    function _sellOnSushiFirst(uint256 _amount) internal {
         IUniswapV2Router02(sushiswap).swapExactTokensForTokens(
             _amount,
             uint256(0),
@@ -392,42 +399,38 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
         );
 
         uint256 _wethBalance = weth.balanceOf(address(this));
-        uint256 _output =
-            IUniV3(uniswapv3).exactInput(
-                IUniV3.ExactInputParams(
-                    abi.encodePacked(
-                        address(weth),
-                        uint24(500),
-                        address(sethProxy)
-                    ),
-                    address(this),
-                    block.timestamp,
-                    _wethBalance,
-                    uint256(1)
-                )
-            );
-        return _output;
+        IUniV3(uniswapv3).exactInput(
+            IUniV3.ExactInputParams(
+                abi.encodePacked(
+                    address(weth),
+                    uint24(500),
+                    address(sethProxy)
+                ),
+                address(this),
+                block.timestamp,
+                _wethBalance,
+                uint256(1)
+            )
+        );
     }
 
     // Sells our CRV for sETH all on uni v3
-    function _sellOnUniOnly(uint256 _amount) internal returns (uint256) {
-        uint256 _output =
-            IUniV3(uniswapv3).exactInput(
-                IUniV3.ExactInputParams(
-                    abi.encodePacked(
-                        address(crv),
-                        uint24(10000),
-                        address(weth),
-                        uint24(500),
-                        address(sethProxy)
-                    ),
-                    address(this),
-                    block.timestamp,
-                    _amount,
-                    uint256(1)
-                )
-            );
-        return _output;
+    function _sellOnUniOnly(uint256 _amount) internal {
+        IUniV3(uniswapv3).exactInput(
+            IUniV3.ExactInputParams(
+                abi.encodePacked(
+                    address(crv),
+                    uint24(uniCrvFee),
+                    address(weth),
+                    uint24(500),
+                    address(sethProxy)
+                ),
+                address(this),
+                block.timestamp,
+                _amount,
+                uint256(1)
+            )
+        );
     }
 
     /* ========== KEEP3RS ========== */
