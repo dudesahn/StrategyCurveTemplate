@@ -446,6 +446,11 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
             return false;
         }
 
+        // check if the base fee gas price is higher than we allow
+        if (readBaseFee() > maxGasPrice) {
+            return false;
+        }
+
         // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
         if (!isActive()) {
             return false;
@@ -465,6 +470,11 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
             return false;
         }
 
+        // check if the base fee gas price is higher than we allow
+        if (readBaseFee() > maxGasPrice) {
+            return false;
+        }
+
         // Should trigger if hasn't been called in a while. Running this based on harvest even though this is a tend call since a harvest should run ~5 mins after every tend.
         StrategyParams memory params = vault.strategies(address(this));
         if (block.timestamp.sub(params.lastReport) >= maxReportDelay)
@@ -479,6 +489,12 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
         returns (uint256)
     {
         return _ethAmount;
+    }
+
+    function readBaseFee() internal view returns (uint256 baseFee) {
+        IBaseFee _baseFeeOracle =
+            IBaseFee(0xf8d0Ec04e94296773cE20eFbeeA82e76220cD549);
+        return _baseFeeOracle.basefee_global();
     }
 
     /* ========== SYNTHETIX ========== */
@@ -572,5 +588,12 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
             synthArray
         );
         return tradingSuspended[0];
+    }
+
+    /* ========== SETTERS ========== */
+
+    // set the maximum gas price we want to pay for a harvest/tend
+    function setGasPrice(uint256 _gasPrice) external onlyAuthorized {
+        gasPrice = _gasPrice;
     }
 }
