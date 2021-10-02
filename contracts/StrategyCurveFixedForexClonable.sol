@@ -20,6 +20,10 @@ import {
 // these are the libraries to use with synthetix
 import "./interfaces/synthetix.sol";
 
+interface IBaseFee {
+    function basefee_global() external view returns (uint256);
+}
+
 interface IUniV3 {
     struct ExactInputParams {
         bytes path;
@@ -182,6 +186,8 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
     bool public sellOnSushi = true; // determine if we sell partially on sushi or all on Uni v3
     bool internal harvestNow; // this tells us if we're currently harvesting or tending
     uint24 public uniCrvFee; // this is equal to 1%, can change this later if a different path becomes more optimal
+    uint256 public lastTendTime; // this is the timestamp that our last tend was called
+    uint256 public maxGasPrice; // this is the max gas price we want our keepers to pay for harvests/tends
 
     // check for cloning
     bool internal isOriginal = true;
@@ -476,9 +482,7 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
         }
 
         // Should trigger if hasn't been called in a while. Running this based on harvest even though this is a tend call since a harvest should run ~5 mins after every tend.
-        StrategyParams memory params = vault.strategies(address(this));
-        if (block.timestamp.sub(params.lastReport) >= maxReportDelay)
-            return true;
+        if (block.timestamp.sub(lastTendTime) >= maxReportDelay) return true;
     }
 
     // convert our keeper's eth cost into want (not applicable, and synths are a pain to swap for, so we removed it)
