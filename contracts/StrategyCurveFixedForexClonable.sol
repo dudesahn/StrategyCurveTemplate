@@ -558,7 +558,7 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
             ) == 0;
     }
 
-    function isMarketClosed() public returns (bool) {
+    function isMarketClosed() public view returns (bool) {
         // set up our arrays to use
         bool[] memory tradingSuspended;
         bytes32[] memory synthArray;
