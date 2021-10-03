@@ -20,6 +20,7 @@ def test_odds_and_ends(
     pool,
     sToken,
     strategy_name,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving. turn off health check before each harvest since we're doing weird shit
@@ -42,6 +43,7 @@ def test_odds_and_ends(
     vault.approve(strategist_ms, 1e25, {"from": whale})
 
     # we want to check when we have a loss
+    strategy.setGasOracle(dummy_gas_oracle, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be true.", tx)
     assert tx == True
@@ -172,6 +174,7 @@ def test_odds_and_ends_migration(
     strategy_name,
     sToken,
     gauge,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving
@@ -191,6 +194,7 @@ def test_odds_and_ends_migration(
     total_old = strategy.estimatedTotalAssets()
 
     # can we harvest an unactivated strategy? should be no
+    new_strategy.setGasOracle(dummy_gas_oracle, {"from": gov})
     tx = new_strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be False.", tx)
     assert tx == False
@@ -437,6 +441,7 @@ def test_odds_and_ends_inactive_strat(
     strategist_ms,
     voter,
     amount,
+    dummy_gas_oracle,
 ):
     ## deposit to the vault after approving
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
@@ -458,6 +463,7 @@ def test_odds_and_ends_inactive_strat(
     strategy.harvest({"from": gov})
 
     # we shouldn't harvest empty strategies
+    strategy.setGasOracle(dummy_gas_oracle, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be false.", tx)
     assert tx == False
