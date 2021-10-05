@@ -398,6 +398,9 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
         } else {
             // this is our tend call
             claimAndSell();
+
+            // update our variable for tracking last tend time
+            lastTendTime = block.timestamp;
         }
     }
 
