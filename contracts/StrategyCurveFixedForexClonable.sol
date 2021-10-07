@@ -183,7 +183,7 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
     // swap stuff
     address public constant uniswapv3 =
         address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-    bool public sellOnSushi = true; // determine if we sell partially on sushi or all on Uni v3
+    bool public sellOnSushi; // determine if we sell partially on sushi or all on Uni v3
     bool internal harvestNow; // this tells us if we're currently harvesting or tending
     uint24 public uniCrvFee; // this is equal to 1%, can change this later if a different path becomes more optimal
     uint256 public lastTendTime; // this is the timestamp that our last tend was called
@@ -608,6 +608,16 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
     // set the maximum gas price we want to pay for a harvest/tend in gwei
     function setGasPrice(uint256 _maxGasPrice) external onlyAuthorized {
         maxGasPrice = _maxGasPrice.mul(1e9);
+    }
+
+    // set the fee pool we'd like to swap through for if we're swapping CRV on UniV3
+    function setUniCrvFee(uint24 _fee) external onlyAuthorized {
+        uniCrvFee = _fee;
+    }
+
+    // set if we want to sell our swap partly on sushi or just uniV3
+    function setSellOnSushi(bool _sellOnSushi) external onlyAuthorized {
+        sellOnSushi = _sellOnSushi;
     }
 
     // set the maximum gas price we want to pay for a harvest/tend in gwei, ******* REMOVE THIS AFTER TESTING *******
