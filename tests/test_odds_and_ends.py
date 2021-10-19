@@ -474,7 +474,7 @@ def test_odds_and_ends_weird_amounts(
     # sleep for a week to get some profit
     chain.sleep(86400 * 7)
     chain.mine(1)
-    
+
     # switch to USDC, want to not have any profit tho
     strategy.setOptimal(1, {"from": gov})
     strategy.harvest({"from": gov})
@@ -482,7 +482,7 @@ def test_odds_and_ends_weird_amounts(
     # sleep for a week to get some profit
     chain.sleep(86400 * 7)
     chain.mine(1)
-    
+
     # switch to USDT, want to not have any profit tho
     strategy.setOptimal(2, {"from": gov})
     strategy.harvest({"from": gov})
@@ -553,7 +553,7 @@ def test_odds_and_ends_rewards_stuff(
     # we do this twice to hit both branches of the if statement
     strategy.updateRewards(rewards_token, {"from": gov})
     strategy.updateRewards(rewards_token, {"from": gov})
-    
+
     # have our whale send some "rewards" to our strat, turn off health check for this harvest
     balance = rewards_token.balanceOf(whale)
     rewards_token.transfer(strategy, balance, {"from": whale})
@@ -582,7 +582,7 @@ def test_odds_and_ends_rewards_stuff(
     chain.sleep(86400)
     chain.mine(1)
     strategy.harvest({"from": gov})
-    
+
     # take 100% of our CRV to the voter
     strategy.setKeepCRV(10000, {"from": gov})
     strategy.harvest({"from": gov})
@@ -654,7 +654,7 @@ def test_odds_and_ends_rewards_stuff(
     # take 0% of our CRV to the voter
     strategy.setKeepCRV(0, {"from": gov})
     strategy.harvest({"from": gov})
-    
+
     ## clone our strategy with rewards on
     tx = strategy.cloneCurve3CrvRewards(
         vault,
@@ -668,5 +668,3 @@ def test_odds_and_ends_rewards_stuff(
         strategy_name,
         {"from": gov},
     )
-    
-    

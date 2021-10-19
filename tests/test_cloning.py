@@ -52,18 +52,6 @@ def test_cloning(
         {"from": gov},
     )
     newStrategy = StrategyCurve3CrvRewardsClonable.at(tx.return_value)
-    newStrategy.initialize(
-            vault,
-            strategist,
-            rewards,
-            keeper,
-            pool,
-            gauge,
-            has_rewards,
-            rewards_token,
-            strategy_name,
-            {"from": gov},
-        )
 
     # Shouldn't be able to call initialize again
     with brownie.reverts():
@@ -79,22 +67,22 @@ def test_cloning(
             strategy_name,
             {"from": gov},
         )
-        
+
     ## shouldn't be able to clone a clone
     with brownie.reverts():
         newStrategy.cloneCurve3CrvRewards(
-                vault,
-                strategist,
-                rewards,
-                keeper,
-                pool,
-                gauge,
-                has_rewards,
-                rewards_token,
-                strategy_name,
+            vault,
+            strategist,
+            rewards,
+            keeper,
+            pool,
+            gauge,
+            has_rewards,
+            rewards_token,
+            strategy_name,
             {"from": gov},
         )
-        
+
     # revoke and send all funds back to vault
     vault.revokeStrategy(strategy, {"from": gov})
     strategy.harvest({"from": gov})
