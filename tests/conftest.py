@@ -10,7 +10,7 @@ def isolation(fn_isolation):
 # put our pool's convex pid here; this is the only thing that should need to change up here **************
 @pytest.fixture(scope="module")
 def pid():
-    pid = 40
+    pid = 51
     yield pid
 
 
@@ -18,7 +18,7 @@ def pid():
 def whale(accounts):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0x78aad3B7e06CD91b88c34B9Add4559Ed8731d59B", force=True)
+    whale = accounts.at("0xC72AED14386158960D0E93Fecb83642e68482E4b", force=True)
     yield whale
 
 
@@ -32,21 +32,21 @@ def amount():
 # this is the name we want to give our strategy
 @pytest.fixture(scope="module")
 def strategy_name():
-    strategy_name = "StrategyCurveMIM"
+    strategy_name = "StrategyCurveUSDM"
     yield strategy_name
 
 
 # we need these next two fixtures for deploying our curve strategy, but not for convex. for convex we can pull them programmatically.
-# this is the address of our rewards token
+# this is the address of our rewards token, in this case it's a dummy (ALCX) that our whale happens to hold
 @pytest.fixture(scope="module")
 def rewards_token():
-    yield Contract("0x090185f2135308BaD17527004364eBcC2D37e5F6")
+    yield Contract("0xdBdb4d16EdA451D0503b854CF79D55697F90c8DF")
 
 
 # this is whether our pool has extra rewards tokens or not
 @pytest.fixture(scope="module")
 def has_rewards():
-    has_rewards = True
+    has_rewards = False
     yield has_rewards
 
 
@@ -252,6 +252,12 @@ def strategy(
     strategy.harvest({"from": gov})
     chain.sleep(1)
     yield strategy
+
+
+@pytest.fixture(scope="module")
+def dummy_gas_oracle(strategist, dummyBasefee):
+    dummy_gas_oracle = strategist.deploy(dummyBasefee)
+    yield dummy_gas_oracle
 
 
 # use this if your strategy is already deployed

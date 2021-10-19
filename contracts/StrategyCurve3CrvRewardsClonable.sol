@@ -14,6 +14,10 @@ import "./interfaces/yearn.sol";
 import {IUniswapV2Router02} from "./interfaces/uniswap.sol";
 import {BaseStrategy} from "@yearnvaults/contracts/BaseStrategy.sol";
 
+interface IBaseFee {
+    function basefee_global() external view returns (uint256);
+}
+
 abstract contract StrategyCurveBase is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -164,6 +168,9 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     ICurveFi public constant zapContract =
         ICurveFi(0xA79828DF1850E8a3A3064576f380D90aECDD3359); // this is used for depositing to all 3Crv metapools
 
+    IBaseFee public _baseFeeOracle; // ******* REMOVE THIS AFTER TESTING *******
+    uint256 public maxGasPrice; // this is the max gas price we want our keepers to pay for harvests/tends in gwei
+
     // we use these to deposit to our curve pool
     uint256 public optimal; // this is the optimal token to deposit back to our curve pool. 0 DAI, 1 USDC, 2 USDT
     IERC20 public constant usdt =
@@ -310,6 +317,9 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
 
         // start off with dai
         crvPath = [address(crv), address(weth), address(dai)];
+
+        // set our max gas price
+        maxGasPrice = 100 * 1e9;
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -355,14 +365,32 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
 
                 // deposit our balance to Curve if we have any
                 if (optimal == 0) {
-                    uint256 daiBalance = dai.balanceOf(address(this));
-                    zapContract.add_liquidity(curve, [0, daiBalance, 0, 0], 0);
+                    uint256 _daiBalance = dai.balanceOf(address(this));
+                    if (_daiBalance > 0) {
+                        zapContract.add_liquidity(
+                            curve,
+                            [0, _daiBalance, 0, 0],
+                            0
+                        );
+                    }
                 } else if (optimal == 1) {
-                    uint256 usdcBalance = usdc.balanceOf(address(this));
-                    zapContract.add_liquidity(curve, [0, 0, usdcBalance, 0], 0);
+                    uint256 _usdcBalance = usdc.balanceOf(address(this));
+                    if (_usdcBalance > 0) {
+                        zapContract.add_liquidity(
+                            curve,
+                            [0, 0, _usdcBalance, 0],
+                            0
+                        );
+                    }
                 } else {
-                    uint256 usdtBalance = usdt.balanceOf(address(this));
-                    zapContract.add_liquidity(curve, [0, 0, 0, usdtBalance], 0);
+                    uint256 _usdtBalance = usdt.balanceOf(address(this));
+                    if (_usdtBalance > 0) {
+                        zapContract.add_liquidity(
+                            curve,
+                            [0, 0, 0, _usdtBalance],
+                            0
+                        );
+                    }
                 }
             }
         }
@@ -479,6 +507,12 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             );
         }
         return callCostInWant;
+    }
+
+    // check the current baseFee
+    function readBaseFee() internal view returns (uint256 baseFee) {
+        // IBaseFee _baseFeeOracle = IBaseFee(0xf8d0Ec04e94296773cE20eFbeeA82e76220cD549); ******* UNCOMMENT THIS AFTER TESTING *******
+        return _baseFeeOracle.basefee_global();
     }
 
     /* ========== SETTERS ========== */

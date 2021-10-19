@@ -4,7 +4,15 @@ import math
 
 # lower debtRatio to 50%, donate, withdraw less than the donation, then harvest
 def test_withdraw_after_donation_1(
-    gov, token, vault, strategist, whale, strategy, chain, amount,
+    gov,
+    token,
+    vault,
+    strategist,
+    whale,
+    strategy,
+    chain,
+    amount,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving
@@ -71,7 +79,15 @@ def test_withdraw_after_donation_1(
 
 # lower debtRatio to 0, donate, withdraw less than the donation, then harvest
 def test_withdraw_after_donation_2(
-    gov, token, vault, strategist, whale, strategy, chain, amount,
+    gov,
+    token,
+    vault,
+    strategist,
+    whale,
+    strategy,
+    chain,
+    amount,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving
@@ -135,7 +151,15 @@ def test_withdraw_after_donation_2(
 
 # lower debtRatio to 0, donate, withdraw more than the donation, then harvest
 def test_withdraw_after_donation_3(
-    gov, token, vault, strategist, whale, strategy, chain, amount,
+    gov,
+    token,
+    vault,
+    strategist,
+    whale,
+    strategy,
+    chain,
+    amount,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving
@@ -199,7 +223,15 @@ def test_withdraw_after_donation_3(
 
 # lower debtRatio to 50%, donate, withdraw more than the donation, then harvest
 def test_withdraw_after_donation_4(
-    gov, token, vault, strategist, whale, strategy, chain, amount,
+    gov,
+    token,
+    vault,
+    strategist,
+    whale,
+    strategy,
+    chain,
+    amount,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving
@@ -270,7 +302,15 @@ def test_withdraw_after_donation_4(
 
 # donate, withdraw more than the donation, then harvest
 def test_withdraw_after_donation_5(
-    gov, token, vault, strategist, whale, strategy, chain, amount,
+    gov,
+    token,
+    vault,
+    strategist,
+    whale,
+    strategy,
+    chain,
+    amount,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving
@@ -325,7 +365,15 @@ def test_withdraw_after_donation_5(
 
 # donate, withdraw less than the donation, then harvest
 def test_withdraw_after_donation_6(
-    gov, token, vault, strategist, whale, strategy, chain, amount,
+    gov,
+    token,
+    vault,
+    strategist,
+    whale,
+    strategy,
+    chain,
+    amount,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving
@@ -380,7 +428,17 @@ def test_withdraw_after_donation_6(
 
 # lower debtRatio to 0, donate, withdraw more than the donation, then harvest
 def test_withdraw_after_donation_7(
-    gov, token, vault, strategist, whale, strategy, chain, amount, gauge, voter,
+    gov,
+    token,
+    vault,
+    strategist,
+    whale,
+    strategy,
+    chain,
+    amount,
+    gauge,
+    voter,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving
@@ -454,7 +512,17 @@ def test_withdraw_after_donation_7(
 
 # lower debtRatio to 0, donate, withdraw more than the donation, then harvest
 def test_withdraw_after_donation_8(
-    gov, token, vault, strategist, whale, strategy, chain, amount, gauge, voter,
+    gov,
+    token,
+    vault,
+    strategist,
+    whale,
+    strategy,
+    chain,
+    amount,
+    gauge,
+    voter,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving

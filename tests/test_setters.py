@@ -4,7 +4,16 @@ from brownie import config
 
 
 def test_setters(
-    gov, strategy, strategist, chain, whale, token, vault, proxy, amount,
+    gov,
+    strategy,
+    strategist,
+    chain,
+    whale,
+    token,
+    vault,
+    proxy,
+    amount,
+    dummy_gas_oracle,
 ):
 
     # test our manual harvest trigger

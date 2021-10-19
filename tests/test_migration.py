@@ -23,6 +23,7 @@ def test_migration(
     gauge,
     has_rewards,
     rewards_token,
+    dummy_gas_oracle,
 ):
 
     ## deposit to the vault after approving
@@ -45,6 +46,7 @@ def test_migration(
     total_old = strategy.estimatedTotalAssets()
 
     # can we harvest an unactivated strategy? should be no
+    new_strategy.setGasOracle(dummy_gas_oracle, {"from": gov})
     tx = new_strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be False.", tx)
     assert tx == False
