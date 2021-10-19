@@ -16,6 +16,7 @@ def test_base_strategy(gov, token, vault, strategist, whale, strategy, chain, am
     donation = 1e16
     token.transfer(strategy, donation, {"from": whale})
 
+    strategy.setGasOracle(dummy_gas_oracle, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be true.", tx)
     assert tx == True
