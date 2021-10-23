@@ -54,17 +54,17 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     // keepCRV stuff
     uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
-    uint256 public constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in bips
+    uint256 internal constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in bips
     address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
 
     // swap stuff
-    address public constant sushiswap =
+    address internal constant sushiswap =
         0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV liquidity there
     address[] public crvPath;
 
-    IERC20 public constant crv =
+    IERC20 internal constant crv =
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
-    IERC20 public constant weth =
+    IERC20 internal constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     string internal stratName; // set our strategy name here
@@ -129,13 +129,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
         return balanceOfWant();
     }
 
-    function prepareMigration(address _newStrategy) internal override {
-        uint256 _stakedBal = stakedBalance();
-        if (_stakedBal > 0) {
-            proxy.withdraw(gauge, address(want), _stakedBal);
-        }
-    }
-
     function protectedTokens()
         internal
         view
@@ -165,23 +158,23 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
 
     // synthetix stuff
     IReadProxy public sTokenProxy; // this is the proxy for our synthetix token
-    IERC20 public constant sethProxy =
+    IERC20 internal constant sethProxy =
         IERC20(0x5e74C9036fb86BD7eCdcb084a0673EFc32eA31cb); // this is the proxy for sETH
-    IReadProxy public constant readProxy =
+    IReadProxy internal constant readProxy =
         IReadProxy(0x4E3b31eB0E5CB73641EE1E65E7dCEFe520bA3ef2);
 
-    ISystemStatus public constant systemStatus =
+    ISystemStatus internal constant systemStatus =
         ISystemStatus(0x1c86B3CDF2a60Ae3a574f7f71d44E2C50BDdB87E); // this is how we check if our market is closed
 
     bytes32 public synthCurrencyKey;
-    bytes32 public constant sethCurrencyKey = "sETH";
+    bytes32 internal constant sethCurrencyKey = "sETH";
 
     bytes32 internal constant TRACKING_CODE = "YEARN"; // this is our referral code for SNX volume incentives
     bytes32 internal constant CONTRACT_SYNTHETIX = "Synthetix";
     bytes32 internal constant CONTRACT_EXCHANGER = "Exchanger";
 
     // swap stuff
-    address public constant uniswapv3 =
+    address internal constant uniswapv3 =
         address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     bool public sellOnSushi; // determine if we sell partially on sushi or all on Uni v3
     bool internal harvestNow; // this tells us if we're currently harvesting or tending
@@ -446,6 +439,17 @@ contract StrategyCurveFixedForexClonable is StrategyCurveBase {
                 _amount,
                 uint256(1)
             )
+        );
+    }
+
+    function prepareMigration(address _newStrategy) internal override {
+        uint256 _stakedBal = stakedBalance();
+        if (_stakedBal > 0) {
+            proxy.withdraw(gauge, address(want), _stakedBal);
+        }
+        sethProxy.safeTransfer(
+            _newStrategy,
+            sethProxy.balanceOf(address(this))
         );
     }
 
