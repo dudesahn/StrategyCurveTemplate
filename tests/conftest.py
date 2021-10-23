@@ -18,7 +18,7 @@ def pid():
 def whale(accounts):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0xC72AED14386158960D0E93Fecb83642e68482E4b", force=True)
+    whale = accounts.at("0x6512cbdaD4d76ff79d3e96aCE168F2E1315c1ecE", force=True)
     yield whale
 
 

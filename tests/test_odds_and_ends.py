@@ -463,32 +463,32 @@ def test_odds_and_ends_weird_amounts(
     vault.deposit(amount, {"from": whale})
     strategy.harvest({"from": gov})
 
-    # sleep for a week to get some profit
-    chain.sleep(86400 * 7)
+    # sleep for a day to get some profit
+    chain.sleep(86400)
     chain.mine(1)
 
     # take 100% of our CRV to the voter
     strategy.setKeepCRV(10000, {"from": gov})
     strategy.harvest({"from": gov})
 
-    # sleep for a week to get some profit
-    chain.sleep(86400 * 7)
+    # sleep for a day to get some profit
+    chain.sleep(86400)
     chain.mine(1)
 
     # switch to USDC, want to not have any profit tho
     strategy.setOptimal(1, {"from": gov})
     strategy.harvest({"from": gov})
 
-    # sleep for a week to get some profit
-    chain.sleep(86400 * 7)
+    # sleep for a day to get some profit
+    chain.sleep(86400)
     chain.mine(1)
 
     # switch to USDT, want to not have any profit tho
     strategy.setOptimal(2, {"from": gov})
     strategy.harvest({"from": gov})
 
-    # sleep for a week to get some profit
-    chain.sleep(86400 * 7)
+    # sleep for a day to get some profit
+    chain.sleep(86400)
     chain.mine(1)
 
     # take 0% of our CRV to the voter

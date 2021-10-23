@@ -32,17 +32,17 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     // keepCRV stuff
     uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
-    uint256 public constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in bips
+    uint256 internal constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in basis points
     address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
 
     // swap stuff
-    address public constant sushiswap =
+    address internal constant sushiswap =
         0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV liquidity there
     address[] public crvPath;
 
-    IERC20 public constant crv =
+    IERC20 internal constant crv =
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
-    IERC20 public constant weth =
+    IERC20 internal constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
@@ -165,19 +165,18 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
 
     // Curve stuff
     address public curve; // This is our pool specific to this vault. Use it with zap contract to specify our correct pool.
-    ICurveFi public constant zapContract =
+    ICurveFi internal constant zapContract =
         ICurveFi(0xA79828DF1850E8a3A3064576f380D90aECDD3359); // this is used for depositing to all 3Crv metapools
 
-    IBaseFee public _baseFeeOracle; // ******* REMOVE THIS AFTER TESTING *******
     uint256 public maxGasPrice; // this is the max gas price we want our keepers to pay for harvests/tends in gwei
 
     // we use these to deposit to our curve pool
     uint256 public optimal; // this is the optimal token to deposit back to our curve pool. 0 DAI, 1 USDC, 2 USDT
-    IERC20 public constant usdt =
+    IERC20 internal constant usdt =
         IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-    IERC20 public constant usdc =
+    IERC20 internal constant usdc =
         IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IERC20 public constant dai =
+    IERC20 internal constant dai =
         IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
 
     // rewards token info. we can have more than 1 reward token but this is rare, so we don't include this in the template
@@ -511,7 +510,8 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
 
     // check the current baseFee
     function readBaseFee() internal view returns (uint256 baseFee) {
-        // IBaseFee _baseFeeOracle = IBaseFee(0xf8d0Ec04e94296773cE20eFbeeA82e76220cD549); ******* UNCOMMENT THIS AFTER TESTING *******
+        IBaseFee _baseFeeOracle =
+            IBaseFee(0xf8d0Ec04e94296773cE20eFbeeA82e76220cD549);
         return _baseFeeOracle.basefee_global();
     }
 
@@ -570,10 +570,5 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     // set the maximum gas price we want to pay for a harvest/tend in gwei
     function setGasPrice(uint256 _maxGasPrice) external onlyAuthorized {
         maxGasPrice = _maxGasPrice.mul(1e9);
-    }
-
-    // set the maximum gas price we want to pay for a harvest/tend in gwei, ******* REMOVE THIS AFTER TESTING *******
-    function setGasOracle(address _gasOracle) external onlyAuthorized {
-        _baseFeeOracle = IBaseFee(_gasOracle);
     }
 }
