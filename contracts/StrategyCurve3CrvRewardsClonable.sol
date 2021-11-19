@@ -12,7 +12,10 @@ import "@openzeppelin/contracts/math/Math.sol";
 import "./interfaces/curve.sol";
 import "./interfaces/yearn.sol";
 import {IUniswapV2Router02} from "./interfaces/uniswap.sol";
-import {BaseStrategy} from "@yearnvaults/contracts/BaseStrategy.sol";
+import {
+    BaseStrategy,
+    StrategyParams
+} from "@yearnvaults/contracts/BaseStrategy.sol";
 
 interface IBaseFee {
     function basefee_global() external view returns (uint256);
@@ -38,7 +41,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // swap stuff
     address internal constant sushiswap =
         0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV liquidity there
-    address[] public crvPath;
+    address[] internal crvPath;
 
     IERC20 internal constant crv =
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
@@ -182,7 +185,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     // rewards token info. we can have more than 1 reward token but this is rare, so we don't include this in the template
     IERC20 public rewardsToken;
     bool public hasRewards;
-    address[] public rewardsPath;
+    address[] internal rewardsPath;
 
     // check for cloning
     bool internal isOriginal = true;
@@ -278,7 +281,8 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
 
         // You can set these parameters on deployment to whatever you want
         maxReportDelay = 7 days; // 7 days in seconds
-        debtThreshold = 5 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
+        minReportDelay = 3 days; // 3 days in seconds
+        debtThreshold = 500 * (10**vault.decimals()); // we shouldn't ever have losses, but set a bit of a buffer
         profitFactor = 1_000_000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
 
@@ -318,7 +322,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         crvPath = [address(crv), address(weth), address(dai)];
 
         // set our max gas price
-        maxGasPrice = 100 * 1e9;
+        maxGasPrice = 125 * 1e9;
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -460,8 +464,25 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         override
         returns (bool)
     {
+        StrategyParams memory params = vault.strategies(address(this));
+
+        // harvest no matter what once we reach our maxDelay
+        if (block.timestamp.sub(params.lastReport) > maxReportDelay) {
+            return true;
+        }
+
+        // check if the base fee gas price is higher than we allow
+        if (readBaseFee() > maxGasPrice) {
+            return false;
+        }
+
         // trigger if we want to manually harvest
         if (forceHarvestTriggerOnce) {
+            return true;
+        }
+
+        // harvest if we hit our minDelay, but only if our gas price is acceptable
+        if (block.timestamp.sub(params.lastReport) > minReportDelay) {
             return true;
         }
 
@@ -470,49 +491,36 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             return false;
         }
 
-        // check if the base fee gas price is higher than we allow
-        if (readBaseFee() > maxGasPrice) {
-            return false;
-        }
-
         return super.harvestTrigger(callCostinEth);
     }
 
-    // convert our keeper's eth cost into want
+    // convert our keeper's eth cost into want, pretend that it's something super cheap so profitFactor isn't triggered
     function ethToWant(uint256 _ethAmount)
         public
         view
         override
         returns (uint256)
     {
-        uint256 callCostInWant;
-        if (_ethAmount > 0) {
-            address[] memory ethPath = new address[](2);
-            ethPath[0] = address(weth);
-            ethPath[1] = address(dai);
-
-            uint256[] memory _callCostInDaiTuple =
-                IUniswapV2Router02(sushiswap).getAmountsOut(
-                    _ethAmount,
-                    ethPath
-                );
-
-            uint256 _callCostInDai =
-                _callCostInDaiTuple[_callCostInDaiTuple.length - 1];
-            callCostInWant = zapContract.calc_token_amount(
-                curve,
-                [0, _callCostInDai, 0, 0],
-                true
-            );
-        }
-        return callCostInWant;
+        return _ethAmount.mul(1e6);
     }
 
     // check the current baseFee
-    function readBaseFee() internal view returns (uint256 baseFee) {
-        IBaseFee _baseFeeOracle =
-            IBaseFee(0xf8d0Ec04e94296773cE20eFbeeA82e76220cD549);
-        return _baseFeeOracle.basefee_global();
+    function readBaseFee() internal view returns (uint256) {
+        uint256 baseFee;
+        try
+            IBaseFee(0xf8d0Ec04e94296773cE20eFbeeA82e76220cD549)
+                .basefee_global()
+        returns (uint256 currentBaseFee) {
+            baseFee = currentBaseFee;
+        } catch {
+            // Useful for testing until ganache supports london fork
+            // Hard-code current base fee to 100 gwei
+            // This should also help keepers that run in a fork without
+            // baseFee() to avoid reverting and potentially abandoning the job
+            baseFee = 100 * 1e9;
+        }
+
+        return baseFee;
     }
 
     /* ========== SETTERS ========== */

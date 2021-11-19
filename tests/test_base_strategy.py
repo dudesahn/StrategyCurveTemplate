@@ -13,7 +13,6 @@ def test_base_strategy(
     strategy,
     chain,
     amount,
-    dummy_gas_oracle,
 ):
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
@@ -25,8 +24,9 @@ def test_base_strategy(
     # our whale donates dust to the vault, what a nice person!
     donation = 1e16
     token.transfer(strategy, donation, {"from": whale})
+    chain.sleep(86400 * 4)  # fast forward so our min delay is passed
+    chain.mine(1)
 
-    strategy.setGasOracle(dummy_gas_oracle, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be true.", tx)
     assert tx == True
