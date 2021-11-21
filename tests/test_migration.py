@@ -5,7 +5,7 @@ import math
 
 
 def test_migration(
-    StrategyCurve3CrvRewardsClonable,
+    StrategyCurveD3pool,
     gov,
     token,
     vault,
@@ -34,12 +34,8 @@ def test_migration(
 
     # deploy our new strategy
     new_strategy = strategist.deploy(
-        StrategyCurve3CrvRewardsClonable,
+        StrategyCurveD3pool,
         vault,
-        pool,
-        gauge,
-        has_rewards,
-        rewards_token,
         strategy_name,
     )
     total_old = strategy.estimatedTotalAssets()
