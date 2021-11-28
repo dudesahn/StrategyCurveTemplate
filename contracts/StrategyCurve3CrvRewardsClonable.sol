@@ -509,14 +509,14 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         return false;
     }
 
-    // convert our keeper's eth cost into want, pretend that it's something super cheap so profitFactor isn't triggered
+    // convert our keeper's eth cost into want, we don't need this anymore since we don't use baseStrategy harvestTrigger
     function ethToWant(uint256 _ethAmount)
         public
         view
         override
         returns (uint256)
     {
-        return _ethAmount.mul(1e6);
+        return _ethAmount;
     }
 
     // check if the current baseFee is below our external target
