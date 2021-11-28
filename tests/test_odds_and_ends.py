@@ -43,9 +43,10 @@ def test_odds_and_ends(
     chain.mine(1)
 
     # we want to check when we have a loss
-    tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be true.", tx)
-    assert tx == True
+    # comment this out since we no longer use harvestTrigger from baseStrategy
+    # tx = strategy.harvestTrigger(0, {"from": gov})
+    # print("\nShould we harvest? Should be true.", tx)
+    # assert tx == True
 
     chain.sleep(1)
     strategy.setDoHealthCheck(False, {"from": gov})
