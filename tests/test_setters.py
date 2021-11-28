@@ -13,6 +13,8 @@ def test_setters(
     vault,
     proxy,
     amount,
+    gasOracle,
+    strategist_ms,
 ):
 
     # test our manual harvest trigger
@@ -20,6 +22,14 @@ def test_setters(
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be true.", tx)
     assert tx == True
+
+    # shouldn't manually harvest when gas is high
+    gasOracle.setMaxAcceptableBaseFee(1 * 1e9, {"from": strategist_ms})
+    tx = strategy.harvestTrigger(0, {"from": gov})
+    print("\nShould we harvest? Should be false.", tx)
+    assert tx == False
+    gasOracle.setMaxAcceptableBaseFee(2000 * 1e9, {"from": strategist_ms})
+
     strategy.setForceHarvestTriggerOnce(False, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be false.", tx)
@@ -52,8 +62,7 @@ def test_setters(
     strategy.setRewards(gov, {"from": strategist})
     strategy.setProxy(proxy, {"from": gov})
     strategy.setKeepCRV(10, {"from": gov})
-    strategy.setOptimal(1, {"from": gov})
-    strategy.setGasPrice(100, {"from": gov})
+    strategy.setUniFees(3000, 3000, {"from": gov})
 
     strategy.setStrategist(strategist, {"from": gov})
     name = strategy.name()
@@ -63,7 +72,6 @@ def test_setters(
     chain.sleep(86400)
     strategy.harvest({"from": gov})
     chain.sleep(1)
-    strategy.setOptimal(2, {"from": gov})
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(86400)
     strategy.harvest({"from": gov})

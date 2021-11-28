@@ -18,7 +18,7 @@ import {
 } from "@yearnvaults/contracts/BaseStrategy.sol";
 
 interface IBaseFee {
-    function basefee_global() external view returns (uint256);
+    function isCurrentBaseFeeAcceptable() external view returns (bool);
 }
 
 interface IUniV3 {
@@ -185,8 +185,6 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     ICurveFi internal constant zapContract =
         ICurveFi(0xA79828DF1850E8a3A3064576f380D90aECDD3359); // this is used for depositing to all 3Crv metapools
 
-    uint256 public maxGasPrice; // this is the max gas price we want our keepers to pay for harvests/tends in gwei
-
     // we use these to deposit to our curve pool
     address public targetStable;
     address internal constant uniswapv3 =
@@ -334,9 +332,6 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         dai.approve(address(zapContract), type(uint256).max);
         usdt.safeApprove(address(zapContract), type(uint256).max); // USDT requires safeApprove(), funky token
         usdc.approve(address(zapContract), type(uint256).max);
-
-        // set our max gas price
-        maxGasPrice = 125 * 1e9;
 
         // start with dai
         targetStable = address(dai);
@@ -495,8 +490,8 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             return true;
         }
 
-        // check if the base fee gas price is higher than we allow
-        if (readBaseFee() > maxGasPrice) {
+        // check if the base fee gas price is higher than we allow. if it is, block harvests.
+        if (!isBaseFeeAcceptable()) {
             return false;
         }
 
@@ -524,23 +519,11 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         return _ethAmount.mul(1e6);
     }
 
-    // check the current baseFee
-    function readBaseFee() internal view returns (uint256) {
-        uint256 baseFee;
-        try
-            IBaseFee(0xf8d0Ec04e94296773cE20eFbeeA82e76220cD549)
-                .basefee_global()
-        returns (uint256 currentBaseFee) {
-            baseFee = currentBaseFee;
-        } catch {
-            // Useful for testing until ganache supports london fork
-            // Hard-code current base fee to 100 gwei
-            // This should also help keepers that run in a fork without
-            // baseFee() to avoid reverting and potentially abandoning the job
-            baseFee = 100 * 1e9;
-        }
-
-        return baseFee;
+    // check if the current baseFee is below our external target
+    function isBaseFeeAcceptable() internal view returns (bool) {
+        return
+            IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
+                .isCurrentBaseFeeAcceptable();
     }
 
     /* ========== SETTERS ========== */
@@ -581,11 +564,6 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         } else {
             revert("incorrect token");
         }
-    }
-
-    // set the maximum gas price we want to pay for a harvest/tend in gwei
-    function setGasPrice(uint256 _maxGasPrice) external onlyAuthorized {
-        maxGasPrice = _maxGasPrice.mul(1e9);
     }
 
     // set the fee pool we'd like to swap through for CRV on UniV3 (1% = 10_000)
