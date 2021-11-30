@@ -44,21 +44,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
     /* ========== STATE VARIABLES ========== */
     // these should stay the same across different wants.
 
-    // curve infrastructure contracts
-    ICurveStrategyProxy public proxy; // Below we set it to Yearn's Updated v4 StrategyProxy
-    address public gauge; // Curve gauge contract, most are tokenized, held by Yearn's voter
-
-    // keepCRV stuff
-    uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
-    uint256 internal constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in basis points
-    address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
-
-    // Swap stuff
-    address internal constant sushiswap =
-        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV and CVX liquidity there
-
-    IERC20 internal constant crv =
-        IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 internal constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
