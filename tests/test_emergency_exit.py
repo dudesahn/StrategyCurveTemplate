@@ -109,9 +109,9 @@ def test_emergency_exit_with_no_gain_or_loss(
     chain.sleep(1)
 
     # send away all funds, will need to alter this based on strategy
-    to_send = gauge.balanceOf(voter)
+    to_send = gauge.balanceOf(strategy)
     print("Gauge Balance of Vault", to_send)
-    gauge.transfer(gov, to_send, {"from": voter})
+    gauge.transfer(gov, to_send, {"from": strategy})
     assert strategy.estimatedTotalAssets() == 0
 
     # have our whale send in exactly our debtOutstanding

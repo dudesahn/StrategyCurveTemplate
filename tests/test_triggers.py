@@ -14,7 +14,6 @@ def test_triggers(
     chain,
     strategist_ms,
     amount,
-    gasOracle,
 ):
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
@@ -57,12 +56,6 @@ def test_triggers(
     strategy.harvest({"from": gov})
     vault.withdraw({"from": whale})
     assert token.balanceOf(whale) >= startingWhale
-
-    # harvest should trigger false due to high gas price
-    gasOracle.setMaxAcceptableBaseFee(1 * 1e9, {"from": strategist_ms})
-    tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be false.", tx)
-    assert tx == False
 
 
 def test_less_useful_triggers(

@@ -5,7 +5,7 @@ import math
 
 
 def test_migration(
-    StrategyCurveD3pool,
+    StrategyCurveGeist,
     gov,
     token,
     vault,
@@ -14,15 +14,12 @@ def test_migration(
     whale,
     strategy,
     chain,
-    proxy,
     strategist_ms,
     healthCheck,
     amount,
     pool,
     strategy_name,
     gauge,
-    has_rewards,
-    rewards_token,
 ):
 
     ## deposit to the vault after approving
@@ -34,7 +31,7 @@ def test_migration(
 
     # deploy our new strategy
     new_strategy = strategist.deploy(
-        StrategyCurveD3pool,
+        StrategyCurveGeist,
         vault,
         strategy_name,
     )
@@ -52,7 +49,6 @@ def test_migration(
 
     # migrate our old strategy
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
-    proxy.approveStrategy(new_strategy.gauge(), new_strategy, {"from": gov})
     new_strategy.setHealthCheck(healthCheck, {"from": gov})
     new_strategy.setDoHealthCheck(True, {"from": gov})
 

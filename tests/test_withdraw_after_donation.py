@@ -475,7 +475,7 @@ def test_withdraw_after_donation_7(
     # check everywhere to make sure we emptied out the strategy
     assert strategy.estimatedTotalAssets() == 0
     assert token.balanceOf(strategy) == 0
-    assert gauge.balanceOf(voter) == 0
+    assert gauge.balanceOf(strategy) == 0
     current_assets = vault.totalAssets()
 
     # assert that our total assets have gone up or stayed the same when accounting for the donation and withdrawal
@@ -558,7 +558,7 @@ def test_withdraw_after_donation_8(
     # check everywhere to make sure we emptied out the strategy
     assert strategy.estimatedTotalAssets() == 0
     assert token.balanceOf(strategy) == 0
-    assert gauge.balanceOf(voter) == 0
+    assert gauge.balanceOf(strategy) == 0
     current_assets = vault.totalAssets()
 
     # assert that our total assets have gone up or stayed the same when accounting for the donation and withdrawal

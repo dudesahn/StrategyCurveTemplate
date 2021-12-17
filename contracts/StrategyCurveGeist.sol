@@ -44,25 +44,18 @@ abstract contract StrategyCurveBase is BaseStrategy {
     /* ========== STATE VARIABLES ========== */
     // these should stay the same across different wants.
 
-    // curve infrastructure contracts
-    ICurveStrategyProxy public proxy =
-        ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152); // Yearn's Updated v4 StrategyProxy
-    address public constant gauge = 0x16C2beE6f55dAB7F494dBa643fF52ef2D47FBA36; // Curve gauge contract, most are tokenized, held by Yearn's voter
+    // Curve stuff
+    IGauge public constant gauge =
+        IGauge(0xd4F94D0aaa640BBb72b5EEc2D85F6D114D81a88E); // Curve gauge contract, most are tokenized, held by strategy
 
     // keepCRV stuff
-    uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
+    uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
     uint256 internal constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in basis points
-    address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
 
-    // swap stuff
-    address internal constant sushiswap =
-        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // default to sushiswap, more CRV liquidity there
-    address[] internal crvPath;
-
-    IERC20 internal constant crv =
-        IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
-    IERC20 internal constant weth =
-        IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20 public constant crv =
+        IERC20(0x1E4F97b9f9F913c46F1632781732927B9019C68b);
+    IERC20 public constant wftm =
+        IERC20(0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83);
 
     bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
 
@@ -79,7 +72,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     function stakedBalance() public view returns (uint256) {
-        return proxy.balanceOf(gauge);
+        return gauge.balanceOf(address(this));
     }
 
     function balanceOfWant() public view returns (uint256) {
@@ -97,11 +90,10 @@ abstract contract StrategyCurveBase is BaseStrategy {
         if (emergencyExit) {
             return;
         }
-        // Send all of our LP tokens to the proxy and deposit to the gauge if we have any
+        // Send all of our LP tokens to deposit to the gauge if we have any
         uint256 _toInvest = balanceOfWant();
         if (_toInvest > 0) {
-            want.safeTransfer(address(proxy), _toInvest);
-            proxy.deposit(gauge, address(want));
+            gauge.deposit(_toInvest);
         }
     }
 
@@ -115,9 +107,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
             // check if we have enough free funds to cover the withdrawal
             uint256 _stakedBal = stakedBalance();
             if (_stakedBal > 0) {
-                proxy.withdraw(
-                    gauge,
-                    address(want),
+                gauge.withdraw(
                     Math.min(_stakedBal, _amountNeeded.sub(_wantBal))
                 );
             }
@@ -135,7 +125,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         uint256 _stakedBal = stakedBalance();
         if (_stakedBal > 0) {
             // don't bother withdrawing zero
-            proxy.withdraw(gauge, address(want), _stakedBal);
+            gauge.withdraw(_stakedBal);
         }
         return balanceOfWant();
     }
@@ -143,7 +133,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     function prepareMigration(address _newStrategy) internal override {
         uint256 _stakedBal = stakedBalance();
         if (_stakedBal > 0) {
-            proxy.withdraw(gauge, address(want), _stakedBal);
+            gauge.withdraw(_stakedBal);
         }
     }
 
@@ -157,11 +147,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
     /* ========== SETTERS ========== */
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
-
-    // Use to update Yearn's StrategyProxy contract as needed in case of upgrades.
-    function setProxy(address _proxy) external onlyGovernance {
-        proxy = ICurveStrategyProxy(_proxy);
-    }
 
     // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
     function setKeepCRV(uint256 _keepCRV) external onlyAuthorized {
@@ -178,28 +163,28 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveD3pool is StrategyCurveBase {
+contract StrategyCurveGeist is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
     // Curve stuff
     ICurveFi public constant curve =
-        ICurveFi(0xBaaa1F5DbA42C3389bDbc2c9D2dE134F5cD0Dc89); // This is our pool specific to this vault.
+        ICurveFi(0x0fa949783947Bf6c1b171DB13AEACBB488845B3f); // This is our pool specific to this vault.
 
     // we use these to deposit to our curve pool
-    uint256 public optimal; // this is the optimal token to deposit back to our curve pool. 0 FEI, 1 FRAX
-    IERC20 internal constant usdc =
-        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    address internal constant uniswapv3 =
-        address(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-    address public targetStable;
-    IERC20 internal constant fei =
-        IERC20(0x956F47F50A910163D8BF957Cf5846D573E7f87CA);
-    IERC20 internal constant frax =
-        IERC20(0x853d955aCEf822Db058eb8505911ED77F175b99e);
-    uint24 public uniCrvFee; // this is equal to 1%, can change this later if a different path becomes more optimal
-    uint24 public uniUsdcFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
-    uint24 public uniStableFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
+    address public targetToken; // this is the token we sell into, DAI, USDC, or fUSDT
+    IERC20 public constant usdc =
+        IERC20(0x04068DA6C83AFCFA0e13ba15A6696662335D5B75);
+    IERC20 public constant dai =
+        IERC20(0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E);
+    IERC20 public constant fusdt =
+        IERC20(0x049d68029688eAbF473097a2fC38ef61633A3C7A);
+    IERC20 public constant geist =
+        IERC20(0xd8321AA83Fb0a4ECd6348D4577431310A6E0814d);
+    IUniswapV2Router02 public router =
+        IUniswapV2Router02(0xF491e7B69E4244ad4002BC14e878a34207E38c29); // this is the router we swap with, start with spookyswap
+
+    address public constant voter = 0x72a34AbafAB09b15E7191822A679f28E067C4a16; // sms
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -208,32 +193,30 @@ contract StrategyCurveD3pool is StrategyCurveBase {
         StrategyCurveBase(_vault)
     {
         // You can set these parameters on deployment to whatever you want
-        maxReportDelay = 7 days; // 7 days in seconds
-        minReportDelay = 3 days; // 3 days in seconds
-        healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
+        maxReportDelay = 2 days; // 2 days in seconds
+        healthCheck = 0xf13Cd6887C62B5beC145e30c38c4938c5E627fe0; // health.ychad.eth
 
         // these are our standard approvals. want = Curve LP token
-        want.approve(address(proxy), type(uint256).max);
-        crv.approve(uniswapv3, type(uint256).max);
-        weth.approve(uniswapv3, type(uint256).max);
-
-        // set our keepCRV
-        keepCRV = 1000;
+        address spooky = 0xF491e7B69E4244ad4002BC14e878a34207E38c29;
+        address spirit = 0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52;
+        want.approve(address(gauge), type(uint256).max);
+        crv.approve(spooky, type(uint256).max);
+        wftm.approve(spooky, type(uint256).max);
+        geist.approve(spooky, type(uint256).max);
+        crv.approve(spirit, type(uint256).max);
+        wftm.approve(spirit, type(uint256).max);
+        geist.approve(spirit, type(uint256).max);
 
         // set our strategy's name
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        frax.approve(address(curve), type(uint256).max);
-        fei.approve(address(curve), type(uint256).max);
+        dai.approve(address(curve), type(uint256).max);
+        usdc.approve(address(curve), type(uint256).max);
+        fusdt.safeApprove(address(curve), type(uint256).max);
 
-        // start off with fei
-        targetStable = address(fei);
-
-        // set our uniswap pool fees
-        uniCrvFee = 10000;
-        uniStableFee = 500;
-        uniUsdcFee = 500;
+        // start off with fusdt
+        targetToken = address(fusdt);
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -248,50 +231,54 @@ contract StrategyCurveD3pool is StrategyCurveBase {
             uint256 _debtPayment
         )
     {
-        // if we have anything in the gauge, then harvest CRV from the gauge
-        uint256 _stakedBal = stakedBalance();
-        if (_stakedBal > 0) {
-            proxy.harvest(gauge);
-            uint256 _crvBalance = crv.balanceOf(address(this));
-            // if we claimed any CRV, then sell it
-            if (_crvBalance > 0) {
-                // keep some of our CRV to increase our boost
-                uint256 _sendToVoter =
-                    _crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
-                if (keepCRV > 0) {
-                    crv.safeTransfer(voter, _sendToVoter);
-                }
-                uint256 _crvRemainder = _crvBalance.sub(_sendToVoter);
-
-                // sell the rest of our CRV
-                if (_crvRemainder > 0) {
-                    _sell(_crvRemainder);
-                }
-
-                // deposit our balance to Curve if we have any
-                if (optimal == 0) {
-                    uint256 _feiBalance = fei.balanceOf(address(this));
-                    if (_feiBalance > 0) {
-                        curve.add_liquidity([0, _feiBalance, 0], 0);
-                    }
-                } else {
-                    uint256 _fraxBalance = frax.balanceOf(address(this));
-                    if (_fraxBalance > 0) {
-                        curve.add_liquidity([_fraxBalance, 0, 0], 0);
-                    }
-                }
+        // harvest our rewards from the gauge
+        gauge.claim_rewards();
+        uint256 crvBalance = crv.balanceOf(address(this));
+        uint256 wftmBalance = wftm.balanceOf(address(this));
+        uint256 geistBalance = geist.balanceOf(address(this));
+        // if we claimed any CRV, then sell it
+        if (crvBalance > 0) {
+            // keep some of our CRV to increase our boost
+            uint256 sendToVoter = crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
+            if (keepCRV > 0) {
+                crv.safeTransfer(voter, sendToVoter);
             }
+            uint256 crvRemainder = crvBalance.sub(sendToVoter);
+
+            // sell the rest of our CRV
+            if (crvRemainder > 0) {
+                _sellToken(address(crv), crvRemainder);
+            }
+        }
+        // sell WFTM if we have any
+        if (wftmBalance > 0) {
+            _sellToken(address(wftm), wftmBalance);
+        }
+
+        // sell the rest of our CRV
+        if (geistBalance > 0) {
+            _sellToken(address(geist), geistBalance);
+        }
+
+        uint256 daiBalance = dai.balanceOf(address(this));
+        uint256 usdcBalance = usdc.balanceOf(address(this));
+        uint256 fusdtBalance = fusdt.balanceOf(address(this));
+
+        // deposit our balance to Curve if we have any
+        if (daiBalance > 0 || usdcBalance > 0 || fusdtBalance > 0) {
+            curve.add_liquidity(
+                [daiBalance, usdcBalance, fusdtBalance],
+                0,
+                true
+            );
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
+        uint256 stakedBal = stakedBalance();
         if (_debtOutstanding > 0) {
-            if (_stakedBal > 0) {
+            if (stakedBal > 0) {
                 // don't bother withdrawing if we don't have staked funds
-                proxy.withdraw(
-                    gauge,
-                    address(want),
-                    Math.min(_stakedBal, _debtOutstanding)
-                );
+                gauge.withdraw(Math.min(stakedBal, _debtOutstanding));
             }
             uint256 _withdrawnBal = balanceOfWant();
             _debtPayment = Math.min(_debtOutstanding, _withdrawnBal);
@@ -319,25 +306,32 @@ contract StrategyCurveD3pool is StrategyCurveBase {
         forceHarvestTriggerOnce = false;
     }
 
-    // Sells our CRV -> WETH -> USDC -> stable of choice on UniV3
-    function _sell(uint256 _crvAmount) internal {
-        IUniV3(uniswapv3).exactInput(
-            IUniV3.ExactInputParams(
-                abi.encodePacked(
-                    address(crv),
-                    uint24(uniCrvFee),
-                    address(weth),
-                    uint24(uniUsdcFee),
-                    address(usdc),
-                    uint24(uniStableFee),
-                    address(targetStable)
-                ),
+    // Sells our CRV, WFTM, or GEIST for our target token
+    function _sellToken(address token, uint256 _amount) internal {
+        if (token == address(wftm)) {
+            address[] memory tokenPath = new address[](2);
+            tokenPath[0] = address(wftm);
+            tokenPath[1] = address(targetToken);
+            IUniswapV2Router02(router).swapExactTokensForTokens(
+                _amount,
+                uint256(0),
+                tokenPath,
                 address(this),
-                block.timestamp,
-                _crvAmount,
-                uint256(1)
-            )
-        );
+                block.timestamp
+            );
+        } else {
+            address[] memory tokenPath = new address[](3);
+            tokenPath[0] = address(token);
+            tokenPath[1] = address(wftm);
+            tokenPath[2] = address(targetToken);
+            IUniswapV2Router02(router).swapExactTokensForTokens(
+                _amount,
+                uint256(0),
+                tokenPath,
+                address(this),
+                block.timestamp
+            );
+        }
     }
 
     /* ========== KEEP3RS ========== */
@@ -355,18 +349,8 @@ contract StrategyCurveD3pool is StrategyCurveBase {
             return true;
         }
 
-        // check if the base fee gas price is higher than we allow. if it is, block harvests.
-        if (!isBaseFeeAcceptable()) {
-            return false;
-        }
-
         // trigger if we want to manually harvest
         if (forceHarvestTriggerOnce) {
-            return true;
-        }
-
-        // harvest if we hit our minDelay, but only if our gas price is acceptable
-        if (block.timestamp.sub(params.lastReport) > minReportDelay) {
             return true;
         }
 
@@ -384,38 +368,33 @@ contract StrategyCurveD3pool is StrategyCurveBase {
         return _ethAmount;
     }
 
-    // check if the current baseFee is below our external target
-    function isBaseFeeAcceptable() internal view returns (bool) {
-        return
-            IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
-                .isCurrentBaseFeeAcceptable();
-    }
-
     /* ========== SETTERS ========== */
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
     // Set optimal token to sell harvested funds for depositing to Curve.
-    // Default is FEI, but can be set to FRAX as needed by strategist or governance.
+    // Default is fUSDT, but can be set to USDC or DAI as needed by strategist or governance.
     function setOptimal(uint256 _optimal) external onlyAuthorized {
         if (_optimal == 0) {
-            targetStable = address(fei);
-            optimal = 0;
+            targetToken = address(dai);
         } else if (_optimal == 1) {
-            targetStable = address(frax);
-            optimal = 1;
+            targetToken = address(usdc);
+        } else if (_optimal == 2) {
+            targetToken = address(fusdt);
         } else {
             revert("incorrect token");
         }
     }
 
-    // set the fee pool we'd like to swap through for CRV on UniV3 (1% = 10_000)
-    function setUniFees(
-        uint24 _crvFee,
-        uint24 _usdcFee,
-        uint24 _stableFee
-    ) external onlyAuthorized {
-        uniCrvFee = _crvFee;
-        uniUsdcFee = _usdcFee;
-        uniStableFee = _stableFee;
+    // spookyswap generally has better liquidity. if this changes, we can use spiritswap.
+    function setUseSpooky(bool useSpooky) external onlyAuthorized {
+        if (useSpooky) {
+            router = IUniswapV2Router02(
+                0xF491e7B69E4244ad4002BC14e878a34207E38c29
+            ); // spookyswap's router
+        } else {
+            router = IUniswapV2Router02(
+                0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52
+            ); // spiritswap router
+        }
     }
 }
