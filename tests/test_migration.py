@@ -5,7 +5,7 @@ import math
 
 
 def test_migration(
-    StrategyCurveGeist,
+    StrategyCurveTricrypto,
     gov,
     token,
     vault,
@@ -31,7 +31,7 @@ def test_migration(
 
     # deploy our new strategy
     new_strategy = strategist.deploy(
-        StrategyCurveGeist,
+        StrategyCurveTricrypto,
         vault,
         strategy_name,
     )

@@ -46,7 +46,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     // Curve stuff
     IGauge public constant gauge =
-        IGauge(0xd4F94D0aaa640BBb72b5EEc2D85F6D114D81a88E); // Curve gauge contract, most are tokenized, held by strategy
+        IGauge(0x00702BbDEaD24C40647f235F15971dB0867F6bdB); // Curve gauge contract, most are tokenized, held by strategy
 
     // keepCRV stuff
     uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
@@ -163,24 +163,22 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveGeist is StrategyCurveBase {
+contract StrategyCurveTricrypto is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
     // Curve stuff
     ICurveFi public constant curve =
-        ICurveFi(0x0fa949783947Bf6c1b171DB13AEACBB488845B3f); // This is our pool specific to this vault.
+        ICurveFi(0x3a1659Ddcf2339Be3aeA159cA010979FB49155FF); // This is our pool specific to this vault.
 
     // we use these to deposit to our curve pool
-    address public targetToken; // this is the token we sell into, DAI, USDC, or fUSDT
-    IERC20 public constant usdc =
-        IERC20(0x04068DA6C83AFCFA0e13ba15A6696662335D5B75);
-    IERC20 public constant dai =
-        IERC20(0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E);
+    address public targetToken; // this is the token we sell into, WETH, WBTC, or fUSDT
+    IERC20 public constant wbtc =
+        IERC20(0x321162Cd933E2Be498Cd2267a90534A804051b11);
+    IERC20 public constant weth =
+        IERC20(0x74b23882a30290451A17c44f4F05243b6b58C76d);
     IERC20 public constant fusdt =
         IERC20(0x049d68029688eAbF473097a2fC38ef61633A3C7A);
-    IERC20 public constant geist =
-        IERC20(0xd8321AA83Fb0a4ECd6348D4577431310A6E0814d);
     IUniswapV2Router02 public router =
         IUniswapV2Router02(0xF491e7B69E4244ad4002BC14e878a34207E38c29); // this is the router we swap with, start with spookyswap
 
@@ -202,17 +200,15 @@ contract StrategyCurveGeist is StrategyCurveBase {
         want.approve(address(gauge), type(uint256).max);
         crv.approve(spooky, type(uint256).max);
         wftm.approve(spooky, type(uint256).max);
-        geist.approve(spooky, type(uint256).max);
         crv.approve(spirit, type(uint256).max);
         wftm.approve(spirit, type(uint256).max);
-        geist.approve(spirit, type(uint256).max);
 
         // set our strategy's name
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        dai.approve(address(curve), type(uint256).max);
-        usdc.approve(address(curve), type(uint256).max);
+        wbtc.approve(address(curve), type(uint256).max);
+        weth.approve(address(curve), type(uint256).max);
         fusdt.safeApprove(address(curve), type(uint256).max);
 
         // start off with fusdt
@@ -235,7 +231,6 @@ contract StrategyCurveGeist is StrategyCurveBase {
         gauge.claim_rewards();
         uint256 crvBalance = crv.balanceOf(address(this));
         uint256 wftmBalance = wftm.balanceOf(address(this));
-        uint256 geistBalance = geist.balanceOf(address(this));
         // if we claimed any CRV, then sell it
         if (crvBalance > 0) {
             // keep some of our CRV to increase our boost
@@ -255,22 +250,13 @@ contract StrategyCurveGeist is StrategyCurveBase {
             _sellToken(address(wftm), wftmBalance);
         }
 
-        // sell the rest of our CRV
-        if (geistBalance > 0) {
-            _sellToken(address(geist), geistBalance);
-        }
-
-        uint256 daiBalance = dai.balanceOf(address(this));
-        uint256 usdcBalance = usdc.balanceOf(address(this));
+        uint256 wethBalance = weth.balanceOf(address(this));
+        uint256 wbtcBalance = wbtc.balanceOf(address(this));
         uint256 fusdtBalance = fusdt.balanceOf(address(this));
 
         // deposit our balance to Curve if we have any
-        if (daiBalance > 0 || usdcBalance > 0 || fusdtBalance > 0) {
-            curve.add_liquidity(
-                [daiBalance, usdcBalance, fusdtBalance],
-                0,
-                true
-            );
+        if (wethBalance > 0 || wbtcBalance > 0 || fusdtBalance > 0) {
+            curve.add_liquidity([fusdtBalance, wbtcBalance, wethBalance], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -372,12 +358,12 @@ contract StrategyCurveGeist is StrategyCurveBase {
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
     // Set optimal token to sell harvested funds for depositing to Curve.
-    // Default is fUSDT, but can be set to USDC or DAI as needed by strategist or governance.
+    // Default is fUSDT, but can be set to WETH or WBTC as needed by strategist or governance.
     function setOptimal(uint256 _optimal) external onlyAuthorized {
         if (_optimal == 0) {
-            targetToken = address(dai);
+            targetToken = address(weth);
         } else if (_optimal == 1) {
-            targetToken = address(usdc);
+            targetToken = address(wbtc);
         } else if (_optimal == 2) {
             targetToken = address(fusdt);
         } else {

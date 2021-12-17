@@ -57,7 +57,7 @@ def test_simple_harvest(
 
     # Display estimated APR
     print(
-        "\nEstimated DAI APR: ",
+        "\nEstimated WETH APR: ",
         "{:.2%}".format(
             ((new_assets - old_assets) * (365)) / (strategy.estimatedTotalAssets())
         ),
@@ -87,7 +87,7 @@ def test_simple_harvest(
 
     # Display estimated APR
     print(
-        "\nEstimated USDC APR: ",
+        "\nEstimated WBTC APR: ",
         "{:.2%}".format(
             ((after_usdc_assets - before_usdc_assets) * (365))
             / (strategy.estimatedTotalAssets())
