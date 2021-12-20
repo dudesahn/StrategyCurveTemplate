@@ -243,11 +243,11 @@ contract StrategyCurveGeist is StrategyCurveBase {
             if (keepCRV > 0) {
                 crv.safeTransfer(voter, sendToVoter);
             }
-            uint256 crvRemainder = crvBalance.sub(sendToVoter);
+            crvBalance = crv.balanceOf(address(this));
 
             // sell the rest of our CRV
-            if (crvRemainder > 0) {
-                _sellToken(address(crv), crvRemainder);
+            if (crvBalance > 0) {
+                _sellToken(address(crv), crvBalance);
             }
         }
         // sell WFTM if we have any
