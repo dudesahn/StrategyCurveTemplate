@@ -65,9 +65,12 @@ def test_setters(
     chain.sleep(86400)
     strategy.harvest({"from": gov})
     chain.sleep(86400)
+    chain.mine(1)
 
     zero = "0x0000000000000000000000000000000000000000"
 
+    with brownie.reverts():
+        strategy.setOptimal(3, {"from": gov})
     with brownie.reverts():
         strategy.setKeeper(zero, {"from": gov})
     with brownie.reverts():
@@ -96,6 +99,10 @@ def test_setters(
     # this is causing the RPC to crash now, weirdly
     # with brownie.reverts():
     # strategy.harvest({"from": gov})
+
+    strategy.setUseSpooky(True, {"from": gov})
+    strategy.setUseSpooky(False, {"from": gov})
+    strategy.setUseSpooky(False, {"from": gov})
 
     # set emergency exit last
     strategy.setEmergencyExit({"from": gov})
