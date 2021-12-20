@@ -243,6 +243,8 @@ contract StrategyCurveGeist is StrategyCurveBase {
             if (keepCRV > 0) {
                 crv.safeTransfer(voter, sendToVoter);
             }
+
+            // check our balance again after transferring some crv to our voter
             crvBalance = crv.balanceOf(address(this));
 
             // sell the rest of our CRV

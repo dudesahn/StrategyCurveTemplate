@@ -42,8 +42,8 @@ def test_simple_harvest(
     # try and include custom logic here to check that funds are in the staking contract (if needed)
     assert gauge.balanceOf(strategy) > stakingBeforeHarvest
 
-    # simulate 1 day of earnings
-    chain.sleep(86400)
+    # simulate 12 hours of earnings because more CRV need to be sent over
+    chain.sleep(43200)
     chain.mine(1)
 
     # harvest, store new asset amount
@@ -59,7 +59,7 @@ def test_simple_harvest(
     print(
         "\nEstimated DAI APR: ",
         "{:.2%}".format(
-            ((new_assets - old_assets) * (365)) / (strategy.estimatedTotalAssets())
+            ((new_assets - old_assets) * (365 * 2)) / (strategy.estimatedTotalAssets())
         ),
     )
 
@@ -73,8 +73,8 @@ def test_simple_harvest(
     # try and include custom logic here to check that funds are in the staking contract (if needed)
     assert gauge.balanceOf(strategy) > 0
 
-    # simulate 1 day of earnings
-    chain.sleep(86400)
+    # simulate 12 hours of earnings because more CRV need to be sent over
+    chain.sleep(43200)
     chain.mine(1)
 
     # harvest, store new asset amount
@@ -89,7 +89,7 @@ def test_simple_harvest(
     print(
         "\nEstimated USDC APR: ",
         "{:.2%}".format(
-            ((after_usdc_assets - before_usdc_assets) * (365))
+            ((after_usdc_assets - before_usdc_assets) * (365 * 2))
             / (strategy.estimatedTotalAssets())
         ),
     )
@@ -104,8 +104,8 @@ def test_simple_harvest(
     # try and include custom logic here to check that funds are in the staking contract (if needed)
     assert gauge.balanceOf(strategy) > 0
 
-    # simulate 1 day of earnings
-    chain.sleep(86400)
+    # simulate 12 hours of earnings because more CRV need to be sent over
+    chain.sleep(43200)
     chain.mine(1)
 
     # harvest, store new asset amount
@@ -120,7 +120,7 @@ def test_simple_harvest(
     print(
         "\nEstimated fUSDT APR: ",
         "{:.2%}".format(
-            ((after_usdc_assets - before_usdc_assets) * (365))
+            ((after_usdc_assets - before_usdc_assets) * (365 * 2))
             / (strategy.estimatedTotalAssets())
         ),
     )
