@@ -32,7 +32,7 @@ def amount():
 # this is the name we want to give our strategy
 @pytest.fixture(scope="module")
 def strategy_name():
-    strategy_name = "StrategyConvexOUSD"
+    strategy_name = "StrategyCurveOUSD"
     yield strategy_name
 
 
