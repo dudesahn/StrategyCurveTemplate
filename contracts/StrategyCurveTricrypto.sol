@@ -17,10 +17,6 @@ import {
     StrategyParams
 } from "@yearnvaults/contracts/BaseStrategy.sol";
 
-interface IBaseFee {
-    function isCurrentBaseFeeAcceptable() external view returns (bool);
-}
-
 interface IUniV3 {
     struct ExactInputParams {
         bytes path;
@@ -46,16 +42,14 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     // Curve stuff
     IGauge public constant gauge =
-        IGauge(0x00702BbDEaD24C40647f235F15971dB0867F6bdB); // Curve gauge contract, most are tokenized, held by strategy
+        IGauge(0x97E2768e8E73511cA874545DC5Ff8067eB19B787); // Curve gauge contract, most are tokenized, held by strategy
 
     // keepCRV stuff
     uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
     uint256 internal constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in basis points
 
     IERC20 public constant crv =
-        IERC20(0x1E4F97b9f9F913c46F1632781732927B9019C68b);
-    IERC20 public constant wftm =
-        IERC20(0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83);
+        IERC20(0x11cDb42B0EB46D95f990BeDD4695A6e3fA034978);
 
     bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
 
@@ -169,16 +163,14 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
 
     // Curve stuff
     ICurveFi public constant curve =
-        ICurveFi(0x3a1659Ddcf2339Be3aeA159cA010979FB49155FF); // This is our pool specific to this vault.
+        ICurveFi(0x960ea3e3C7FB317332d990873d354E18d7645590); // This is our pool specific to this vault.
 
     // we use these to deposit to our curve pool
     address public targetToken; // this is the token we sell into, WETH, WBTC, or fUSDT
-    IERC20 public constant wbtc =
-        IERC20(0x321162Cd933E2Be498Cd2267a90534A804051b11);
+    IERC20 public constant wbtc = IERC20();
     IERC20 public constant weth =
-        IERC20(0x74b23882a30290451A17c44f4F05243b6b58C76d);
-    IERC20 public constant fusdt =
-        IERC20(0x049d68029688eAbF473097a2fC38ef61633A3C7A);
+        IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
+    IERC20 public constant usdt = IERC20();
     IUniswapV2Router02 public router =
         IUniswapV2Router02(0xF491e7B69E4244ad4002BC14e878a34207E38c29); // this is the router we swap with, start with spookyswap
 
@@ -294,32 +286,17 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
         forceHarvestTriggerOnce = false;
     }
 
-    // Sells our CRV, WFTM, or GEIST for our target token
-    function _sellToken(address token, uint256 _amount) internal {
-        if (token == address(wftm)) {
-            address[] memory tokenPath = new address[](2);
-            tokenPath[0] = address(wftm);
-            tokenPath[1] = address(targetToken);
-            IUniswapV2Router02(router).swapExactTokensForTokens(
-                _amount,
-                uint256(0),
-                tokenPath,
+    // Sells our CRV for WETH on uniswap v3
+    function _sellCRV(uint256 _amount) internal {
+        IUniV3(uniswapv3).exactInput(
+            IUniV3.ExactInputParams(
+                abi.encodePacked(address(crv), uint24(3000), address(weth)),
                 address(this),
-                block.timestamp
-            );
-        } else {
-            address[] memory tokenPath = new address[](3);
-            tokenPath[0] = address(token);
-            tokenPath[1] = address(wftm);
-            tokenPath[2] = address(targetToken);
-            IUniswapV2Router02(router).swapExactTokensForTokens(
-                _amount,
-                uint256(0),
-                tokenPath,
-                address(this),
-                block.timestamp
-            );
-        }
+                block.timestamp,
+                _usdcBalance,
+                uint256(1)
+            )
+        );
     }
 
     /* ========== KEEP3RS ========== */
