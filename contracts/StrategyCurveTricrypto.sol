@@ -195,7 +195,7 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
     {
         // You can set these parameters on deployment to whatever you want
         maxReportDelay = 2 days; // 2 days in seconds
-        healthCheck = 0x32059ccE723b4DD15dD5cb2a5187f814e6c470bC; // health.ychad.eth need to deploy still
+        healthCheck = 0x32059ccE723b4DD15dD5cb2a5187f814e6c470bC; // arbitrum healthcheck contract
 
         // these are our standard approvals. want = Curve LP token
         want.approve(address(gauge), type(uint256).max);
