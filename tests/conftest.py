@@ -11,14 +11,14 @@ def isolation(fn_isolation):
 def whale(accounts):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0x4d51B782DA9e2cD073916bd4e9eC6d06916B049e", force=True)
+    whale = accounts.at("0xd2d2F6a38F3A323Df87346413269cdB62cBDDB71", force=True)
     yield whale
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="module")
 def amount():
-    amount = 50e18
+    amount = 500e18
     yield amount
 
 
@@ -29,41 +29,64 @@ def strategy_name():
     yield strategy_name
 
 
-# Only worry about changing things above this line, unless you want to make changes to the vault or strategy.
-# ----------------------------------------------------------------------- #
-
-
-@pytest.fixture(scope="function")
-def voter():
-    yield Contract("0x72a34AbafAB09b15E7191822A679f28E067C4a16")
-
-
-@pytest.fixture(scope="function")
-def crv():
-    yield Contract("0x1E4F97b9f9F913c46F1632781732927B9019C68b")
-
-
+# use this when we might lose a few wei on conversions between want and another deposit token
 @pytest.fixture(scope="module")
-def other_vault_strategy():
-    yield Contract("0xfF8bb7261E4D51678cB403092Ae219bbEC52aa51")
+def is_slippery():
+    is_slippery = False
+    yield is_slippery
 
 
+# use this to test our strategy in case there are no profits
 @pytest.fixture(scope="module")
-def farmed():
-    yield Contract("0x7d016eec9c25232b01F23EF992D98ca97fc2AF5a")
+def no_profit():
+    no_profit = False
+    yield no_profit
 
 
+# gauge for the curve pool
 @pytest.fixture(scope="module")
-def healthCheck():
-    yield Contract("0xf13Cd6887C62B5beC145e30c38c4938c5E627fe0")
+def gauge():
+    # this should be the address of the convex deposit token
+    gauge = "0x97E2768e8E73511cA874545DC5Ff8067eB19B787"
+    yield Contract(gauge)
+
+
+# curve deposit pool
+@pytest.fixture(scope="module")
+def pool():
+    poolAddress = Contract("0x960ea3e3C7FB317332d990873d354E18d7645590")
+    yield poolAddress
 
 
 # Define relevant tokens and contracts in this section
 @pytest.fixture(scope="module")
 def token():
     # this should be the address of the ERC-20 used by the strategy/vault
-    token_address = "0x58e57cA18B7A47112b877E31929798Cd3D703b0f"
+    token_address = "0x8e0B8c8BB9db49a46697F3a5Bb8A308e744821D2"
     yield Contract(token_address)
+
+
+# Only worry about changing things above this line
+# ----------------------------------------------------------------------- #
+# FOR NOW THIS IS DAI, since SMS isn't verified on dumb arbiscan
+@pytest.fixture(scope="function")
+def voter():
+    yield Contract("0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1")
+
+
+@pytest.fixture(scope="function")
+def dai():
+    yield Contract("0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1")
+
+
+@pytest.fixture(scope="function")
+def other_vault_strategy():
+    yield Contract("0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1")
+
+
+@pytest.fixture(scope="module")
+def healthCheck():
+    yield Contract("0x32059ccE723b4DD15dD5cb2a5187f814e6c470bC")
 
 
 # zero address
@@ -71,21 +94,6 @@ def token():
 def zero_address():
     zero_address = "0x0000000000000000000000000000000000000000"
     yield zero_address
-
-
-# gauge for the curve pool
-@pytest.fixture(scope="module")
-def gauge():
-    # this should be the address of the convex deposit token
-    gauge = "0x00702BbDEaD24C40647f235F15971dB0867F6bdB"
-    yield Contract(gauge)
-
-
-# curve deposit pool
-@pytest.fixture(scope="module")
-def pool():
-    poolAddress = Contract("0x3a1659Ddcf2339Be3aeA159cA010979FB49155FF")
-    yield poolAddress
 
 
 # Define any accounts in this section

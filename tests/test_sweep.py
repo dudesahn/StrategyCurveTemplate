@@ -12,7 +12,7 @@ def test_sweep(
     strategy,
     chain,
     strategist_ms,
-    farmed,
+    dai,
     amount,
 ):
 
@@ -22,7 +22,7 @@ def test_sweep(
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
-    strategy.sweep(farmed, {"from": gov})
+    strategy.sweep(dai, {"from": gov})
 
     # Strategy want token doesn't work
     startingWhale = token.balanceOf(whale)

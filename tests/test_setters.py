@@ -52,9 +52,8 @@ def test_setters(
     strategy.setProfitFactor(1000, {"from": gov})
     strategy.setRewards(gov, {"from": strategist})
     strategy.setKeepCRV(10, {"from": gov})
-    strategy.setUseSpooky(True, {"from": gov})
-    strategy.setUseSpooky(False, {"from": gov})
-    strategy.setUseSpooky(False, {"from": gov})
+    strategy.setCreditThreshold(10, {"from": gov})
+    strategy.setKeepCRV(10, {"from": gov})
 
     strategy.setStrategist(strategist, {"from": gov})
     name = strategy.name()
@@ -70,7 +69,7 @@ def test_setters(
     chain.sleep(86400)
 
     zero = "0x0000000000000000000000000000000000000000"
-    
+
     with brownie.reverts():
         strategy.setOptimal(4, {"from": gov})
     with brownie.reverts():

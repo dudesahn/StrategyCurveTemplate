@@ -21,6 +21,15 @@ def test_triggers(
     vault.deposit(amount, {"from": whale})
     newWhale = token.balanceOf(whale)
     starting_assets = vault.totalAssets()
+
+    # update our creditThreshold so harvest triggers true
+    strategy.setCreditThreshold(1, {"from": gov})
+    tx = strategy.harvestTrigger(0, {"from": gov})
+    print("\nShould we harvest? Should be true.", tx)
+    assert tx == True
+    # increase this so it doesn't trigger stuff below
+    strategy.setCreditThreshold(1e30, {"from": gov})
+
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)

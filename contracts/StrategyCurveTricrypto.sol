@@ -52,6 +52,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         IERC20(0x11cDb42B0EB46D95f990BeDD4695A6e3fA034978);
 
     bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
+    uint256 public creditThreshold; // amount of credit in underlying tokens that will automatically trigger a harvest
 
     string internal stratName; // set our strategy name here
 
@@ -143,15 +144,23 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
 
     // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
-    function setKeepCRV(uint256 _keepCRV) external onlyAuthorized {
+    function setKeepCRV(uint256 _keepCRV) external onlyEmergencyAuthorized {
         require(_keepCRV <= 10_000);
         keepCRV = _keepCRV;
+    }
+
+    // Credit threshold is in want token, and will trigger a harvest if credit is large enough.
+    function setCreditThreshold(uint256 _creditThreshold)
+        external
+        onlyEmergencyAuthorized
+    {
+        creditThreshold = _creditThreshold;
     }
 
     // This allows us to manually harvest with our keeper as needed
     function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce)
         external
-        onlyAuthorized
+        onlyEmergencyAuthorized
     {
         forceHarvestTriggerOnce = _forceHarvestTriggerOnce;
     }
@@ -167,14 +176,16 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
 
     // we use these to deposit to our curve pool
     address public targetToken; // this is the token we sell into, WETH, WBTC, or fUSDT
-    IERC20 public constant wbtc = IERC20();
-    IERC20 public constant weth =
+    IERC20 internal constant wbtc =
+        IERC20(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
+    IERC20 internal constant weth =
         IERC20(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
-    IERC20 public constant usdt = IERC20();
-    IUniswapV2Router02 public router =
-        IUniswapV2Router02(0xF491e7B69E4244ad4002BC14e878a34207E38c29); // this is the router we swap with, start with spookyswap
+    IERC20 internal constant usdt =
+        IERC20(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9);
+    IUniswapV2Router02 internal constant router =
+        IUniswapV2Router02(0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506); // this is the router we swap with, sushi
 
-    address public constant voter = 0x72a34AbafAB09b15E7191822A679f28E067C4a16; // sms
+    address public constant voter = 0x6346282DB8323A54E840c6C772B4399C9c655C0d; // sms
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -184,16 +195,11 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
     {
         // You can set these parameters on deployment to whatever you want
         maxReportDelay = 2 days; // 2 days in seconds
-        healthCheck = 0xf13Cd6887C62B5beC145e30c38c4938c5E627fe0; // health.ychad.eth
+        healthCheck = 0x32059ccE723b4DD15dD5cb2a5187f814e6c470bC; // health.ychad.eth need to deploy still
 
         // these are our standard approvals. want = Curve LP token
-        address spooky = 0xF491e7B69E4244ad4002BC14e878a34207E38c29;
-        address spirit = 0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52;
         want.approve(address(gauge), type(uint256).max);
-        crv.approve(spooky, type(uint256).max);
-        wftm.approve(spooky, type(uint256).max);
-        crv.approve(spirit, type(uint256).max);
-        wftm.approve(spirit, type(uint256).max);
+        crv.approve(address(router), type(uint256).max);
 
         // set our strategy's name
         stratName = _name;
@@ -201,10 +207,10 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
         // these are our approvals and path specific to this contract
         wbtc.approve(address(curve), type(uint256).max);
         weth.approve(address(curve), type(uint256).max);
-        fusdt.safeApprove(address(curve), type(uint256).max);
+        usdt.safeApprove(address(curve), type(uint256).max);
 
-        // start off with fusdt
-        targetToken = address(fusdt);
+        // start off with weth
+        targetToken = address(weth);
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -222,7 +228,6 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
         // harvest our rewards from the gauge
         gauge.claim_rewards();
         uint256 crvBalance = crv.balanceOf(address(this));
-        uint256 wftmBalance = wftm.balanceOf(address(this));
         // if we claimed any CRV, then sell it
         if (crvBalance > 0) {
             // keep some of our CRV to increase our boost
@@ -236,21 +241,17 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
 
             // sell the rest of our CRV
             if (crvBalance > 0) {
-                _sellToken(address(crv), crvBalance);
+                _sell(crvBalance);
             }
-        }
-        // sell WFTM if we have any
-        if (wftmBalance > 0) {
-            _sellToken(address(wftm), wftmBalance);
         }
 
         uint256 wethBalance = weth.balanceOf(address(this));
         uint256 wbtcBalance = wbtc.balanceOf(address(this));
-        uint256 fusdtBalance = fusdt.balanceOf(address(this));
+        uint256 usdtBalance = usdt.balanceOf(address(this));
 
         // deposit our balance to Curve if we have any
-        if (wethBalance > 0 || wbtcBalance > 0 || fusdtBalance > 0) {
-            curve.add_liquidity([fusdtBalance, wbtcBalance, wethBalance], 0);
+        if (wethBalance > 0 || wbtcBalance > 0 || usdtBalance > 0) {
+            curve.add_liquidity([usdtBalance, wbtcBalance, wethBalance], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -286,17 +287,34 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
         forceHarvestTriggerOnce = false;
     }
 
-    // Sells our CRV for WETH on uniswap v3
-    function _sellCRV(uint256 _amount) internal {
-        IUniV3(uniswapv3).exactInput(
-            IUniV3.ExactInputParams(
-                abi.encodePacked(address(crv), uint24(3000), address(weth)),
+    // Sells our CRV for WETH on sushi
+    function _sell(uint256 _amount) internal {
+        if (targetToken == address(weth)) {
+            address[] memory path = new address[](2);
+            path[0] = address(crv);
+            path[1] = address(weth);
+
+            IUniswapV2Router02(router).swapExactTokensForTokens(
+                _amount,
+                uint256(0),
+                path,
                 address(this),
-                block.timestamp,
-                _usdcBalance,
-                uint256(1)
-            )
-        );
+                block.timestamp
+            );
+        } else {
+            address[] memory path = new address[](3);
+            path[0] = address(crv);
+            path[1] = address(weth);
+            path[2] = targetToken;
+
+            IUniswapV2Router02(router).swapExactTokensForTokens(
+                _amount,
+                uint256(0),
+                path,
+                address(this),
+                block.timestamp
+            );
+        }
     }
 
     /* ========== KEEP3RS ========== */
@@ -307,10 +325,19 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
         override
         returns (bool)
     {
-        StrategyParams memory params = vault.strategies(address(this));
+        // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
+        if (!isActive()) {
+            return false;
+        }
 
+        StrategyParams memory params = vault.strategies(address(this));
         // harvest no matter what once we reach our maxDelay
         if (block.timestamp.sub(params.lastReport) > maxReportDelay) {
+            return true;
+        }
+
+        // harvest our credit if it's above our threshold
+        if (vault.creditAvailable() > creditThreshold) {
             return true;
         }
 
@@ -337,29 +364,16 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
     // Set optimal token to sell harvested funds for depositing to Curve.
-    // Default is fUSDT, but can be set to WETH or WBTC as needed by strategist or governance.
-    function setOptimal(uint256 _optimal) external onlyAuthorized {
+    // Default is WETH, but can be set to USDT or WBTC as needed by strategist or governance.
+    function setOptimal(uint256 _optimal) external onlyEmergencyAuthorized {
         if (_optimal == 0) {
             targetToken = address(weth);
         } else if (_optimal == 1) {
             targetToken = address(wbtc);
         } else if (_optimal == 2) {
-            targetToken = address(fusdt);
+            targetToken = address(usdt);
         } else {
             revert("incorrect token");
-        }
-    }
-
-    // spookyswap generally has better liquidity. if this changes, we can use spiritswap.
-    function setUseSpooky(bool useSpooky) external onlyAuthorized {
-        if (useSpooky) {
-            router = IUniswapV2Router02(
-                0xF491e7B69E4244ad4002BC14e878a34207E38c29
-            ); // spookyswap's router
-        } else {
-            router = IUniswapV2Router02(
-                0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52
-            ); // spiritswap router
         }
     }
 }
