@@ -125,6 +125,11 @@ contract StrategyCurveTwoPool is StrategyCurveBase {
   event DebugUint256(uint256 step, uint256 data);
   event DebugBytes(uint256 step, bytes data);
 
+  // TODO: REMOVE!
+  function sell(uint256 _amount) external {
+      _sell(_amount);
+  }
+
   // Sell our CRV in Uniswap V3 for our `targetToken`, USDT or USDC
   function _sell(uint256 _amount) internal {
     emit DebugAddress(0, address(crv));
@@ -151,7 +156,6 @@ contract StrategyCurveTwoPool is StrategyCurveBase {
       ISwapRouter.ExactInputParams(
         path, // multi-hop path
         address(this),
-        now, // deadline
         _amount,
         0 // amountOutMinimum
       )

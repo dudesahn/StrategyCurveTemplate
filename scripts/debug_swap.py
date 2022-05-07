@@ -26,9 +26,7 @@ path = encode_abi_packed(
     ],
 ).hex()
 
-tx = router.exactInput.encode_input(
-    (path, strategist, chain[len(chain) - 1].timestamp, weth_amount, 0),
-)
+tx = router.exactInput((path, strategist.address, weth_amount, 0), {"from": strategist})
 
 tx.info()
 tx.call_trace(True)
