@@ -1,9 +1,11 @@
-# use Ganache's forked mainnet mode as the default network
-# NOTE: You don't *have* to do this, but it is often helpful for testing
-networks:
-  default: mainnet-fork
+strategy:
+  name: StrategyCurveTwoPool
 
-# automatically fetch contract sources from Etherscan
+# Use a fork for Arbitrum mainnet as the degault ganache network
+networks:
+  default: arb-main-fork
+
+# automatically fetch contract sources from Arbiscan
 autofetch_sources: True
 
 # require OpenZepplin Contracts
@@ -22,3 +24,34 @@ compiler:
 reports:
   exclude_contracts:
     - SafeMath
+
+contracts:
+  # contracts used by the strategy
+  registry: "0x3199437193625DCcD6F9C9e98BDf93582200Eb1f"
+  gauge: "0xbF7E49483881C76487b0989CD7d9A8239B20CA41"
+  # pool and token addresses are the same
+  pool: "0x7f90122BF0700F9E7e1F688fe926940E8839F353"
+  token: "0x7f90122BF0700F9E7e1F688fe926940E8839F353" # want
+  # `vault` is created by running scripts/deploy_vault.py
+  vault: "0x49448d2B94fb9C4e41a30aD8315D32f46004A34b"
+  weth: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+  crv: "0x11cDb42B0EB46D95f990BeDD4695A6e3fA034978"
+  usdt: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9"
+  usdc: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
+  dai: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1"
+  # Uniswap has two implementations of the V3 swap contract router
+  routerV2: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"
+  router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+  healthCheck: "0x32059ccE723b4DD15dD5cb2a5187f814e6c470bC"
+  other-vault-strat: "0x19e70E3195fEC1A33745D9260Bf26c3f915Bb0CC"
+
+wallets:
+  lp_whale: "0x7d6fAdb02e70bfb6325cFD6Ec5605e552115AA76"
+  crv_whale: "0x4A65e76bE1b4e8dd6eF618277Fa55200e3F8F20a"
+  governance: "0xb6bc033D34733329971B938fEf32faD7e98E56aD"
+  keeper: "0x1DEb47dCC9a35AD454Bf7f0fCDb03c09792C08c1"
+  rewards: "0x1DEb47dCC9a35AD454Bf7f0fCDb03c09792C08c1"
+  guardian: "0x6346282DB8323A54E840c6C772B4399C9c655C0d"
+  management: "0x6346282DB8323A54E840c6C772B4399C9c655C0d"
+  strategist_ms: "0x6346282DB8323A54E840c6C772B4399C9c655C0d"
+  strategist: "0x2757AE02F65dB7Ce8CF2b2261c58f07a0170e58e"

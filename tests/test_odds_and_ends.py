@@ -1,7 +1,9 @@
-import brownie
-from brownie import Contract
-from brownie import config
 import math
+from brownie import config, convert
+import brownie
+
+Strategy = config["strategy"]["name"]
+Strategy = getattr(__import__("brownie"), Strategy)
 
 
 def test_odds_and_ends(
@@ -13,18 +15,13 @@ def test_odds_and_ends(
     strategy,
     chain,
     strategist_ms,
-    voter,
     gauge,
-    StrategyCurveTricrypto,
     amount,
-    pool,
-    strategy_name,
 ):
 
     ## deposit to the vault after approving. turn off health check before each harvest since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
-    startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -56,11 +53,21 @@ def test_odds_and_ends(
 
     # we can try to migrate too, lol
     # deploy our new strategy
-    new_strategy = strategist.deploy(
-        StrategyCurveTricrypto,
-        vault,
-        strategy_name,
-    )
+    args = [
+        vault.address,
+        config["strategy"]["name"],
+        convert.to_address(config["contracts"]["usdt"]),
+        convert.to_address(config["contracts"]["usdc"]),
+        convert.to_address(config["contracts"]["healthCheck"]),
+        convert.to_address(config["contracts"]["gauge"]),
+        convert.to_address(config["contracts"]["pool"]),
+        convert.to_address(config["contracts"]["weth"]),
+        convert.to_address(config["contracts"]["crv"]),
+        convert.to_address(config["contracts"]["router"]),
+    ]
+
+    new_strategy = Strategy.deploy(*args, {"from": strategist})
+
     total_old = strategy.estimatedTotalAssets()
 
     # migrate our old strategy
@@ -91,7 +98,6 @@ def test_odds_and_ends(
     # check our oracle
     one_eth_in_want = strategy.ethToWant(1e18)
     print("This is how much want one ETH buys:", one_eth_in_want)
-    zero_eth_in_want = strategy.ethToWant(0)
 
     # check our views
     strategy.apiVersion()
@@ -108,20 +114,16 @@ def test_odds_and_ends_2(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
-    voter,
     gauge,
     amount,
 ):
 
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
-    startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -144,35 +146,39 @@ def test_odds_and_ends_2(
 
 
 def test_odds_and_ends_migration(
-    StrategyCurveTricrypto,
     gov,
     token,
     vault,
-    guardian,
     strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
     amount,
-    pool,
-    strategy_name,
-    gauge,
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # deploy our new strategy
-    new_strategy = strategist.deploy(
-        StrategyCurveTricrypto,
-        vault,
-        strategy_name,
-    )
+    args = [
+        vault.address,
+        config["strategy"]["name"],
+        convert.to_address(config["contracts"]["usdt"]),
+        convert.to_address(config["contracts"]["usdc"]),
+        convert.to_address(config["contracts"]["healthCheck"]),
+        convert.to_address(config["contracts"]["gauge"]),
+        convert.to_address(config["contracts"]["pool"]),
+        convert.to_address(config["contracts"]["weth"]),
+        convert.to_address(config["contracts"]["crv"]),
+        convert.to_address(config["contracts"]["router"]),
+    ]
+
+    new_strategy = Strategy.deploy(*args, {"from": strategist})
+
     total_old = strategy.estimatedTotalAssets()
 
     # can we harvest an unactivated strategy? should be no
@@ -226,20 +232,16 @@ def test_odds_and_ends_liquidatePosition(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
     gauge,
-    voter,
     amount,
 ):
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
-    newWhale = token.balanceOf(whale)
 
     # this is part of our check into the staking contract balance
     stakingBeforeHarvest = gauge.balanceOf(strategy)
@@ -274,7 +276,7 @@ def test_odds_and_ends_liquidatePosition(
     print(
         "\nEstimated APR: ",
         "{:.2%}".format(
-            ((new_assets - old_assets) * (365)) / (strategy.estimatedTotalAssets())
+            ((new_assets - old_assets) * (365.25)) / (strategy.estimatedTotalAssets())
         ),
     )
 
@@ -296,19 +298,15 @@ def test_odds_and_ends_rekt(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
-    voter,
     gauge,
     amount,
 ):
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
-    startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -325,7 +323,7 @@ def test_odds_and_ends_rekt(
 
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
-    tx = strategy.harvest({"from": gov})
+    strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # we can also withdraw from an empty vault as well
@@ -337,19 +335,15 @@ def test_odds_and_ends_liquidate_rekt(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
-    voter,
     gauge,
     amount,
 ):
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
-    startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -367,15 +361,10 @@ def test_odds_and_ends_liquidate_rekt(
 
 def test_weird_reverts_and_trigger(
     gov,
-    token,
     vault,
-    strategist,
-    whale,
     strategy,
-    chain,
     strategist_ms,
     other_vault_strategy,
-    amount,
 ):
 
     # only vault can call this
@@ -400,15 +389,13 @@ def test_odds_and_ends_inactive_strat(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
     amount,
 ):
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -424,57 +411,3 @@ def test_odds_and_ends_inactive_strat(
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be false.", tx)
     assert tx == False
-
-
-# this one tests if we don't have any CRV to send to voter or any left over after sending
-def test_odds_and_ends_weird_amounts(
-    gov,
-    token,
-    vault,
-    strategist,
-    whale,
-    strategy,
-    chain,
-    strategist_ms,
-    amount,
-):
-
-    ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
-    vault.deposit(amount, {"from": whale})
-    strategy.harvest({"from": gov})
-
-    # switch to DAI, want to not have any profit tho
-    strategy.setOptimal(0, {"from": gov})
-
-    # sleep for a day to get some profit
-    chain.sleep(86400)
-    chain.mine(1)
-
-    # take 100% of our CRV to the voter
-    strategy.setKeepCRV(10000, {"from": gov})
-    strategy.harvest({"from": gov})
-
-    # sleep for a day to get some profit
-    chain.sleep(86400)
-    chain.mine(1)
-
-    # switch to USDC, want to not have any profit tho
-    strategy.setOptimal(1, {"from": gov})
-    strategy.harvest({"from": gov})
-
-    # sleep for a day to get some profit
-    chain.sleep(86400)
-    chain.mine(1)
-
-    # switch to fUSDT, want to not have any profit tho
-    strategy.setOptimal(2, {"from": gov})
-    strategy.harvest({"from": gov})
-
-    # sleep for a day to get some profit
-    chain.sleep(86400)
-    chain.mine(1)
-
-    # take 0% of our CRV to the voter
-    strategy.setKeepCRV(0, {"from": gov})
-    strategy.harvest({"from": gov})

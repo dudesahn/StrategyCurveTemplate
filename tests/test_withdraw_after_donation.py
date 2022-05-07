@@ -1,5 +1,3 @@
-import brownie
-from brownie import chain, Contract
 import math
 
 # lower debtRatio to 50%, donate, withdraw less than the donation, then harvest
@@ -7,7 +5,6 @@ def test_withdraw_after_donation_1(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
@@ -17,7 +14,7 @@ def test_withdraw_after_donation_1(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -88,7 +85,6 @@ def test_withdraw_after_donation_2(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
@@ -98,7 +94,7 @@ def test_withdraw_after_donation_2(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -169,7 +165,6 @@ def test_withdraw_after_donation_3(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
@@ -179,7 +174,7 @@ def test_withdraw_after_donation_3(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -187,7 +182,6 @@ def test_withdraw_after_donation_3(
 
     prev_params = vault.strategies(strategy).dict()
 
-    currentDebt = vault.strategies(strategy)[2]
     vault.updateStrategyDebtRatio(strategy, 0, {"from": gov})
     assert vault.strategies(strategy)[2] == 0
 
@@ -250,7 +244,6 @@ def test_withdraw_after_donation_4(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
@@ -260,7 +253,7 @@ def test_withdraw_after_donation_4(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -334,7 +327,6 @@ def test_withdraw_after_donation_5(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
@@ -344,7 +336,7 @@ def test_withdraw_after_donation_5(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -406,7 +398,6 @@ def test_withdraw_after_donation_6(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
@@ -416,7 +407,7 @@ def test_withdraw_after_donation_6(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -478,7 +469,6 @@ def test_withdraw_after_donation_7(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
@@ -488,7 +478,7 @@ def test_withdraw_after_donation_7(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -497,7 +487,6 @@ def test_withdraw_after_donation_7(
     prev_params = vault.strategies(strategy).dict()
     prev_assets = vault.totalAssets()
 
-    currentDebt = vault.strategies(strategy)[2]
     vault.updateStrategyDebtRatio(strategy, 0, {"from": gov})
     assert vault.strategies(strategy)[2] == 0
 
@@ -573,7 +562,6 @@ def test_withdraw_after_donation_8(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
@@ -583,7 +571,7 @@ def test_withdraw_after_donation_8(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -592,7 +580,6 @@ def test_withdraw_after_donation_8(
     prev_params = vault.strategies(strategy).dict()
     prev_assets = vault.totalAssets()
 
-    currentDebt = vault.strategies(strategy)[2]
     vault.updateStrategyDebtRatio(strategy, 0, {"from": gov})
     assert vault.strategies(strategy)[2] == 0
 

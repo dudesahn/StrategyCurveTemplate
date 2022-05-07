@@ -1,5 +1,4 @@
-import brownie
-from brownie import chain
+from scripts.utils import getSnapshot
 import math
 
 
@@ -7,7 +6,6 @@ def test_change_debt_with_profit(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
@@ -17,10 +15,11 @@ def test_change_debt_with_profit(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.tend({"from": gov})
+
     chain.mine(1)
     chain.sleep(361)
     strategy.harvest({"from": gov})
@@ -30,9 +29,9 @@ def test_change_debt_with_profit(
 
     prev_params = vault.strategies(strategy).dict()
 
-    currentDebt = vault.strategies(strategy)[2]
+    currentDebt = vault.strategies(strategy)["debtRatio"]
     vault.updateStrategyDebtRatio(strategy, currentDebt / 2, {"from": gov})
-    assert vault.strategies(strategy)[2] == 5000
+    assert vault.strategies(strategy)["debtRatio"] == 5000
 
     # our whale donates dust to the vault, what a nice person!
     donation = amount

@@ -1,40 +1,45 @@
-import brownie
-from brownie import Contract
-from brownie import config
 import math
+from brownie import config, convert
+
+Strategy = config["strategy"]["name"]
+Strategy = getattr(__import__("brownie"), Strategy)
 
 
 def test_migration(
-    StrategyCurveTricrypto,
     gov,
     token,
     vault,
-    guardian,
     strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
     healthCheck,
     amount,
-    pool,
-    strategy_name,
-    gauge,
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # deploy our new strategy
-    new_strategy = strategist.deploy(
-        StrategyCurveTricrypto,
-        vault,
-        strategy_name,
-    )
+    args = [
+        vault.address,
+        config["strategy"]["name"],
+        convert.to_address(config["contracts"]["usdt"]),
+        convert.to_address(config["contracts"]["usdc"]),
+        convert.to_address(config["contracts"]["healthCheck"]),
+        convert.to_address(config["contracts"]["gauge"]),
+        convert.to_address(config["contracts"]["pool"]),
+        convert.to_address(config["contracts"]["weth"]),
+        convert.to_address(config["contracts"]["crv"]),
+        convert.to_address(config["contracts"]["router"]),
+    ]
+
+    new_strategy = Strategy.deploy(*args, {"from": strategist})
+
     total_old = strategy.estimatedTotalAssets()
 
     # can we harvest an unactivated strategy? should be no

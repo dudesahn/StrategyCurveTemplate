@@ -1,6 +1,4 @@
 import brownie
-from brownie import Contract
-from brownie import config
 
 
 def test_setters(
@@ -12,33 +10,28 @@ def test_setters(
     token,
     vault,
     amount,
-    strategist_ms,
 ):
 
     # test our manual harvest trigger
     strategy.setForceHarvestTriggerOnce(True, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be true.", tx)
-    assert tx == True
+    assert tx == True, "Should we harvest? Should have been true."
 
     strategy.setForceHarvestTriggerOnce(False, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be false.", tx)
-    assert tx == False
+    assert tx == False, "Should we harvest? Should have been false."
 
     # test our manual harvest trigger, and that a harvest turns it off
     strategy.setForceHarvestTriggerOnce(True, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be true.", tx)
-    assert tx == True
+    assert tx == True, "Should we harvest? Should have been true."
+
     strategy.harvest({"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be false.", tx)
-    assert tx == False
+    assert tx == False, "Should we harvest? Should have been false."
 
     ## deposit to the vault after approving
-    startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -51,9 +44,7 @@ def test_setters(
     strategy.setMinReportDelay(100, {"from": gov})
     strategy.setProfitFactor(1000, {"from": gov})
     strategy.setRewards(gov, {"from": strategist})
-    strategy.setKeepCRV(10, {"from": gov})
     strategy.setCreditThreshold(10, {"from": gov})
-    strategy.setKeepCRV(10, {"from": gov})
 
     strategy.setStrategist(strategist, {"from": gov})
     name = strategy.name()
@@ -70,8 +61,12 @@ def test_setters(
 
     zero = "0x0000000000000000000000000000000000000000"
 
+    # change our target deposit asset
+    strategy.setTargetToken(0, {"from": gov})
+    strategy.setTargetToken(1, {"from": gov})
+
     with brownie.reverts():
-        strategy.setOptimal(4, {"from": gov})
+        strategy.setTargetToken(2, {"from": gov})
     with brownie.reverts():
         strategy.setKeeper(zero, {"from": gov})
     with brownie.reverts():
@@ -87,7 +82,7 @@ def test_setters(
     with brownie.reverts():
         strategy.setRewards(strategist, {"from": whale})
     with brownie.reverts():
-        strategy.setKeepCRV(10_001, {"from": gov})
+        strategy.harvest({"from": whale})
 
     # try a health check with zero address as health check
     strategy.setHealthCheck(zero, {"from": gov})
@@ -98,8 +93,6 @@ def test_setters(
     strategy.setHealthCheck(gov, {"from": gov})
     strategy.setDoHealthCheck(True, {"from": gov})
     # this is causing the RPC to crash now, weirdly
-    # with brownie.reverts():
-    # strategy.harvest({"from": gov})
 
     # set emergency exit last
     strategy.setEmergencyExit({"from": gov})

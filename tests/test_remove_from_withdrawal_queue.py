@@ -1,9 +1,3 @@
-import brownie
-from brownie import Contract
-from brownie import config
-import math
-
-
 def test_remove_from_withdrawal_queue(
     gov,
     token,
@@ -14,8 +8,7 @@ def test_remove_from_withdrawal_queue(
     amount,
 ):
     ## deposit to the vault after approving
-    startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
