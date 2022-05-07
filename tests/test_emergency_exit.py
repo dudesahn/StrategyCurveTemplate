@@ -1,9 +1,3 @@
-import math
-import brownie
-from brownie import Contract
-from brownie import config
-
-# test passes as of 21-06-26
 def test_emergency_exit(
     gov,
     token,
@@ -13,10 +7,12 @@ def test_emergency_exit(
     chain,
     amount,
 ):
+
+    assert 2 == 1
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
-    vault.deposit(amount, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
+    tx = vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
@@ -56,7 +52,7 @@ def test_emergency_exit_with_profit(
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -102,7 +98,7 @@ def test_emergency_exit_with_no_gain_or_loss(
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})

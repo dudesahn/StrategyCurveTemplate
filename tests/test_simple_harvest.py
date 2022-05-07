@@ -1,37 +1,35 @@
-import brownie
-from brownie import Contract
-from brownie import config
-import math
-
-
 def test_simple_harvest(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
     gauge,
-    voter,
     amount,
+    strategist,
 ):
+
+    authorized = gov
+
+    if vault.governance() != gov.address:
+        authorized = strategist
+
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
-    newWhale = token.balanceOf(whale)
+    # newWhale = token.balanceOf(whale)
 
     # change our optimal deposit asset
-    strategy.setOptimal(0, {"from": gov})
+    # strategy.setOptimal(0, {"from": authorized})
 
     # this is part of our check into the staking contract balance
     stakingBeforeHarvest = gauge.balanceOf(strategy)
 
     # harvest, store asset amount
     chain.sleep(1)
-    strategy.harvest({"from": gov})
+    strategy.harvest({"from": authorized})
     chain.sleep(1)
     old_assets = vault.totalAssets()
     assert old_assets > 0
@@ -43,12 +41,15 @@ def test_simple_harvest(
     assert gauge.balanceOf(strategy) > stakingBeforeHarvest
 
     # simulate 12 hours of earnings because more CRV need to be sent over
-    chain.sleep(43200)
+    chain.sleep(60 * 60 * 12)
     chain.mine(1)
 
     # harvest, store new asset amount
     chain.sleep(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": authorized})
+
+    assert 1 == 2
+
     chain.sleep(1)
     new_assets = vault.totalAssets()
     # confirm we made money, or at least that we have about the same
