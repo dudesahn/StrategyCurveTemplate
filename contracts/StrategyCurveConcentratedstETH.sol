@@ -17,40 +17,26 @@ import {
     StrategyParams
 } from "@yearnvaults/contracts/BaseStrategy.sol";
 
-interface IUniV3 {
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    function exactInput(ExactInputParams calldata params)
-        external
-        payable
-        returns (uint256 amountOut);
+interface IBaseFee {
+    function isCurrentBaseFeeAcceptable() external view returns (bool);
 }
 
 abstract contract StrategyCurveBase is BaseStrategy {
-    using SafeERC20 for IERC20;
     using Address for address;
-    using SafeMath for uint256;
 
     /* ========== STATE VARIABLES ========== */
     // these should stay the same across different wants.
 
     // Curve stuff
-    IGauge public constant gauge =
-        IGauge(0xF668E6D326945d499e5B35E7CD2E82aCFbcFE6f0); // Curve gauge contract, most are tokenized, held by strategy
+    address public constant gauge = 0xF668E6D326945d499e5B35E7CD2E82aCFbcFE6f0; // Curve gauge contract, most are tokenized, held by strategy
     ICurveStrategyProxy public proxy =
         ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152); // Yearn's Updated v4 StrategyProxy
 
     // keepCRV stuff
-    uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
+    uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
     uint256 internal constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in basis points
 
-    IERC20 public constant crv =
+    IERC20 internal constant crv =
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
 
     bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
@@ -69,7 +55,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     function stakedBalance() public view returns (uint256) {
-        return gauge.balanceOf(address(this));
+        return proxy.balanceOf(gauge);
     }
 
     function balanceOfWant() public view returns (uint256) {
@@ -149,7 +135,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
 
     // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
-    function setKeepCRV(uint256 _keepCRV) external onlyEmergencyAuthorized {
+    function setKeepCRV(uint256 _keepCRV) external onlyVaultManagers {
         require(_keepCRV <= 10_000);
         keepCRV = _keepCRV;
     }
@@ -157,7 +143,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // Credit threshold is in want token, and will trigger a harvest if credit is large enough.
     function setCreditThreshold(uint256 _creditThreshold)
         external
-        onlyEmergencyAuthorized
+        onlyVaultManagers
     {
         creditThreshold = _creditThreshold;
     }
@@ -165,7 +151,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // This allows us to manually harvest with our keeper as needed
     function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce)
         external
-        onlyEmergencyAuthorized
+        onlyVaultManagers
     {
         forceHarvestTriggerOnce = _forceHarvestTriggerOnce;
     }
@@ -185,11 +171,16 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
         ICurveFi(0x828b154032950C8ff7CF8085D841723Db2696056); // This is our pool specific to this vault.
 
     // we use these to deposit to our curve pool
-    address public targetToken; // this is the token we sell into, WETH, WBTC, or fUSDT
     IERC20 internal constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    IUniswapV2Router02 internal constant router =
-        IUniswapV2Router02(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // this is the router we swap with, sushi
+    IERC20 internal constant ldo =
+        IERC20(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32);
+    address internal constant sushiswap =
+        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // this is the router we swap with, sushi
+
+    // use Curve to sell our CRV rewards to WETH
+    ICurveFi internal constant crveth =
+        ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
 
     address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // yearn's voter
 
@@ -201,13 +192,13 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
     {
         // You can set these parameters on deployment to whatever you want
         maxReportDelay = 2 days; // 2 days in seconds
-        keepCRV = 1000;
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
         creditThreshold = 500 * 1e18;
 
         // these are our standard approvals. want = Curve LP token
-        want.approve(address(gauge), type(uint256).max);
-        crv.approve(address(router), type(uint256).max);
+        want.approve(address(proxy), type(uint256).max);
+        crv.approve(address(crveth), type(uint256).max);
+        ldo.approve(sushiswap, type(uint256).max);
 
         // set our strategy's name
         stratName = _name;
@@ -245,15 +236,10 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
 
             // check our balance again after transferring some crv to our voter
             crvBalance = crv.balanceOf(address(this));
-
-            // sell the rest of our CRV
-            if (crvBalance > 0) {
-                _sell(crvBalance);
-            }
         }
 
         // do this every time
-        _sell();
+        _sell(crvBalance);
 
         uint256 wethBalance = weth.balanceOf(address(this));
         // deposit our balance to Curve if we have any
@@ -298,8 +284,12 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
         forceHarvestTriggerOnce = false;
     }
 
-    // Sells our LDO for WETH on sushi
-    function _sell() internal {
+    // Sells our LDO for WETH on sushi and CRV if we have it on Curve
+    function _sell(uint256 _crvAmount) internal {
+        if (_crvAmount > 0) {
+            crveth.exchange(1, 0, _crvAmount, 0, false);
+        }
+
         uint256 ldoBalance = ldo.balanceOf(address(this));
         if (ldoBalance > 0) {
             address[] memory path = new address[](2);
@@ -307,7 +297,7 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
             path[1] = address(weth);
 
             IUniswapV2Router02(sushiswap).swapExactTokensForTokens(
-                _amount,
+                ldoBalance,
                 uint256(0),
                 path,
                 address(this),
@@ -335,6 +325,16 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
             return true;
         }
 
+        // check if the base fee gas price is higher than we allow. if it is, block harvests.
+        if (!isBaseFeeAcceptable()) {
+            return false;
+        }
+
+        // harvest once we reach our minDelay if gas is okay
+        if (block.timestamp.sub(params.lastReport) > minReportDelay) {
+            return true;
+        }
+
         // harvest our credit if it's above our threshold
         if (vault.creditAvailable() > creditThreshold) {
             return true;
@@ -347,6 +347,13 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
 
         // otherwise, we don't harvest
         return false;
+    }
+
+    // check if the current baseFee is below our external target
+    function isBaseFeeAcceptable() internal view returns (bool) {
+        return
+            IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
+                .isCurrentBaseFeeAcceptable();
     }
 
     // convert our keeper's eth cost into want, we don't need this anymore since we don't use baseStrategy harvestTrigger

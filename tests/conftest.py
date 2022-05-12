@@ -1,5 +1,6 @@
 import pytest
 from brownie import config, Wei, Contract
+import requests
 
 # Snapshots the chain before each test and reverts after test completion.
 @pytest.fixture(autouse=True)
@@ -7,25 +8,47 @@ def isolation(fn_isolation):
     pass
 
 
+# set this for if we want to use tenderly or not; mostly helpful because with brownie.reverts fails in tenderly forks.
+use_tenderly = True
+
+################################################## TENDERLY DEBUGGING ##################################################
+
+# change autouse to True if we want to use this fork to help debug tests
+@pytest.fixture(scope="module", autouse=use_tenderly)
+def tenderly_fork(web3, chain):
+    fork_base_url = "https://simulate.yearn.network/fork"
+    payload = {"network_id": str(chain.id)}
+    resp = requests.post(fork_base_url, headers={}, json=payload)
+    fork_id = resp.json()["simulation_fork"]["id"]
+    fork_rpc_url = f"https://rpc.tenderly.co/fork/{fork_id}"
+    print(fork_rpc_url)
+    tenderly_provider = web3.HTTPProvider(fork_rpc_url, {"timeout": 600})
+    web3.provider = tenderly_provider
+    print(f"https://dashboard.tenderly.co/yearn/yearn-web/fork/{fork_id}")
+
+
+################################################ UPDATE THINGS BELOW HERE ################################################
+
+
 @pytest.fixture(scope="module")
 def whale(accounts):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0xd2d2F6a38F3A323Df87346413269cdB62cBDDB71", force=True)
+    whale = accounts.at("0x5faF6a2D186448Dfa667c51CB3D695c7A6E52d8E", force=True)
     yield whale
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="module")
 def amount():
-    amount = 500e18
+    amount = 2e18
     yield amount
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="module")
 def strategy_name():
-    strategy_name = "StrategyCurveTricrypto"
+    strategy_name = "StrategyCurveConcentratedstETH"
     yield strategy_name
 
 
@@ -46,15 +69,14 @@ def no_profit():
 # gauge for the curve pool
 @pytest.fixture(scope="module")
 def gauge():
-    # this should be the address of the convex deposit token
-    gauge = "0x97E2768e8E73511cA874545DC5Ff8067eB19B787"
+    gauge = "0xF668E6D326945d499e5B35E7CD2E82aCFbcFE6f0"
     yield Contract(gauge)
 
 
 # curve deposit pool
 @pytest.fixture(scope="module")
 def pool():
-    poolAddress = Contract("0x960ea3e3C7FB317332d990873d354E18d7645590")
+    poolAddress = Contract("0x828b154032950C8ff7CF8085D841723Db2696056")
     yield poolAddress
 
 
@@ -62,16 +84,20 @@ def pool():
 @pytest.fixture(scope="module")
 def token():
     # this should be the address of the ERC-20 used by the strategy/vault
-    token_address = "0x8e0B8c8BB9db49a46697F3a5Bb8A308e744821D2"
+    token_address = "0x828b154032950C8ff7CF8085D841723Db2696056"
     yield Contract(token_address)
 
 
 # Only worry about changing things above this line
 # ----------------------------------------------------------------------- #
-# FOR NOW THIS IS DAI, since SMS isn't verified on dumb arbiscan
 @pytest.fixture(scope="function")
 def voter():
-    yield Contract("0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1")
+    yield Contract("0xF147b8125d2ef93FB6965Db97D6746952a133934")
+
+
+@pytest.fixture(scope="function")
+def proxy():
+    yield Contract("0xA420A63BbEFfbda3B147d0585F1852C358e2C152")
 
 
 @pytest.fixture(scope="function")
@@ -86,7 +112,7 @@ def other_vault_strategy():
 
 @pytest.fixture(scope="module")
 def healthCheck():
-    yield Contract("0x32059ccE723b4DD15dD5cb2a5187f814e6c470bC")
+    yield Contract("0xDDCea799fF1699e98EDF118e0629A974Df7DF012")
 
 
 # zero address
@@ -101,7 +127,7 @@ def zero_address():
 # normal gov is ychad, 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
 @pytest.fixture(scope="module")
 def gov(accounts):
-    yield accounts.at("0xC0E2830724C946a6748dDFE09753613cd38f6767", force=True)
+    yield accounts.at("0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52", force=True)
 
 
 @pytest.fixture(scope="module")
@@ -147,7 +173,7 @@ def vault(pm, gov, rewards, guardian, management, token, chain):
     Vault = pm(config["dependencies"][0]).Vault
     vault = guardian.deploy(Vault)
     vault.initialize(token, gov, rewards, "", "", guardian)
-    vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
+    vault.setDepositLimit(2**256 - 1, {"from": gov})
     vault.setManagement(management, {"from": gov})
     chain.sleep(1)
     yield vault
@@ -163,7 +189,7 @@ def vault(pm, gov, rewards, guardian, management, token, chain):
 # replace the first value with the name of your strategy
 @pytest.fixture(scope="function")
 def strategy(
-    StrategyCurveTricrypto,
+    StrategyCurveConcentratedstETH,
     strategist,
     keeper,
     vault,
@@ -176,10 +202,11 @@ def strategy(
     strategy_name,
     gauge,
     strategist_ms,
+    proxy,
 ):
     # make sure to include all constructor parameters needed here
     strategy = strategist.deploy(
-        StrategyCurveTricrypto,
+        StrategyCurveConcentratedstETH,
         vault,
         strategy_name,
     )
@@ -187,7 +214,8 @@ def strategy(
     # set our management fee to zero so it doesn't mess with our profit checking
     vault.setManagementFee(0, {"from": gov})
     # add our new strategy
-    vault.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+    vault.addStrategy(strategy, 10_000, 0, 2**256 - 1, 0, {"from": gov})
+    proxy.approveStrategy(strategy.gauge(), strategy, {"from": gov})
     strategy.setHealthCheck(healthCheck, {"from": gov})
     strategy.setDoHealthCheck(True, {"from": gov})
     chain.sleep(1)

@@ -19,15 +19,9 @@ def test_simple_harvest(
 ):
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     newWhale = token.balanceOf(whale)
-
-    # change our optimal deposit asset
-    strategy.setOptimal(0, {"from": gov})
-
-    # this is part of our check into the staking contract balance
-    stakingBeforeHarvest = gauge.balanceOf(strategy)
 
     # harvest, store asset amount
     chain.sleep(1)
@@ -38,9 +32,6 @@ def test_simple_harvest(
     assert token.balanceOf(strategy) == 0
     assert strategy.estimatedTotalAssets() > 0
     print("\nStarting Assets: ", old_assets / 1e18)
-
-    # try and include custom logic here to check that funds are in the staking contract (if needed)
-    assert gauge.balanceOf(strategy) > stakingBeforeHarvest
 
     # simulate 12 hours of earnings because more CRV need to be sent over
     chain.sleep(43200)
@@ -63,70 +54,8 @@ def test_simple_harvest(
         ),
     )
 
-    # change our optimal deposit asset
-    strategy.setOptimal(1, {"from": gov})
-
-    # store asset amount
-    before_usdc_assets = vault.totalAssets()
-    assert token.balanceOf(strategy) == 0
-
-    # try and include custom logic here to check that funds are in the staking contract (if needed)
-    assert gauge.balanceOf(strategy) > 0
-
     # simulate 12 hours of earnings because more CRV need to be sent over
     chain.sleep(43200)
-    chain.mine(1)
-
-    # harvest, store new asset amount
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    after_usdc_assets = vault.totalAssets()
-    # confirm we made money, or at least that we have about the same
-    assert after_usdc_assets >= before_usdc_assets
-
-    # Display estimated APR
-    print(
-        "\nEstimated WBTC APR: ",
-        "{:.2%}".format(
-            ((after_usdc_assets - before_usdc_assets) * (365 * 2))
-            / (strategy.estimatedTotalAssets())
-        ),
-    )
-
-    # change our optimal deposit asset
-    strategy.setOptimal(2, {"from": gov})
-
-    # store asset amount
-    before_usdc_assets = vault.totalAssets()
-    assert token.balanceOf(strategy) == 0
-
-    # try and include custom logic here to check that funds are in the staking contract (if needed)
-    assert gauge.balanceOf(strategy) > 0
-
-    # simulate 12 hours of earnings because more CRV need to be sent over
-    chain.sleep(43200)
-    chain.mine(1)
-
-    # harvest, store new asset amount
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    after_usdc_assets = vault.totalAssets()
-    # confirm we made money, or at least that we have about the same
-    assert after_usdc_assets >= before_usdc_assets
-
-    # Display estimated APR
-    print(
-        "\nEstimated fUSDT APR: ",
-        "{:.2%}".format(
-            ((after_usdc_assets - before_usdc_assets) * (365 * 2))
-            / (strategy.estimatedTotalAssets())
-        ),
-    )
-
-    # simulate a day of waiting for share price to bump back up
-    chain.sleep(86400)
     chain.mine(1)
 
     # withdraw and confirm we made money, or at least that we have about the same
