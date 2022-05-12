@@ -35,9 +35,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
     uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
     uint256 internal constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in basis points
 
-    IERC20 internal constant crv =
-        IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
-
     bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
     uint256 public creditThreshold; // amount of credit in underlying tokens that will automatically trigger a harvest
 
@@ -178,9 +175,10 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
         StrategyCurveBase(_vault)
     {
         // You can set these parameters on deployment to whatever you want
-        maxReportDelay = 2 days; // 2 days in seconds
+        maxReportDelay = 5 days; // 2 days in seconds
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
         creditThreshold = 500 * 1e18;
+        minReportDelay = 2 days; // 2 days in seconds
 
         // these are our standard approvals. want = Curve LP token
         want.approve(address(gauge), type(uint256).max);

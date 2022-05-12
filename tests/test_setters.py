@@ -14,28 +14,6 @@ def test_setters(
     amount,
     strategist_ms,
 ):
-
-    # test our manual harvest trigger
-    strategy.setForceHarvestTriggerOnce(True, {"from": gov})
-    tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be true.", tx)
-    assert tx == True
-
-    strategy.setForceHarvestTriggerOnce(False, {"from": gov})
-    tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be false.", tx)
-    assert tx == False
-
-    # test our manual harvest trigger, and that a harvest turns it off
-    strategy.setForceHarvestTriggerOnce(True, {"from": gov})
-    tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be true.", tx)
-    assert tx == True
-    strategy.harvest({"from": gov})
-    tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be false.", tx)
-    assert tx == False
-
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
     token.approve(vault, 2**256 - 1, {"from": whale})
@@ -53,7 +31,6 @@ def test_setters(
     strategy.setRewards(gov, {"from": strategist})
     strategy.setKeepCRV(10, {"from": gov})
     strategy.setCreditThreshold(10, {"from": gov})
-    strategy.setKeepCRV(10, {"from": gov})
 
     strategy.setStrategist(strategist, {"from": gov})
     name = strategy.name()
@@ -70,8 +47,6 @@ def test_setters(
 
     zero = "0x0000000000000000000000000000000000000000"
 
-    with brownie.reverts():
-        strategy.setOptimal(4, {"from": gov})
     with brownie.reverts():
         strategy.setKeeper(zero, {"from": gov})
     with brownie.reverts():

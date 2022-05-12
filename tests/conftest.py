@@ -105,6 +105,11 @@ def dai():
     yield Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
 
 
+@pytest.fixture(scope="module")
+def gasOracle():
+    yield Contract("0xb5e1CAcB567d98faaDB60a1fD4820720141f064F")
+
+
 @pytest.fixture(scope="function")
 def other_vault_strategy():
     yield Contract("0x2055CFD5CDbc90c60A202A1AC3DDfB71AeC1cE98")
@@ -133,7 +138,7 @@ def gov(accounts):
 @pytest.fixture(scope="module")
 def strategist_ms(accounts):
     # like governance, but better
-    yield accounts.at("0x72a34AbafAB09b15E7191822A679f28E067C4a16", force=True)
+    yield accounts.at("0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7", force=True)
 
 
 @pytest.fixture(scope="module")

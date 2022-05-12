@@ -362,7 +362,7 @@ def test_odds_and_ends_liquidate_rekt(
     assert strategy.estimatedTotalAssets() == 0
 
     # we can also withdraw from an empty vault as well, but make sure we're okay with losing 100%
-    vault.withdraw(10e18, whale, 10000, {"from": whale})
+    vault.withdraw(amount, whale, 10000, {"from": whale})
 
 
 def test_weird_reverts_and_trigger(
