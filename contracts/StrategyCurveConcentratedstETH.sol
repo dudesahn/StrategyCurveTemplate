@@ -28,9 +28,8 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // these should stay the same across different wants.
 
     // Curve stuff
-    address public constant gauge = 0xF668E6D326945d499e5B35E7CD2E82aCFbcFE6f0; // Curve gauge contract, most are tokenized, held by strategy
-    ICurveStrategyProxy public proxy =
-        ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152); // Yearn's Updated v4 StrategyProxy
+    IGauge public constant gauge =
+        IGauge(0xF668E6D326945d499e5B35E7CD2E82aCFbcFE6f0); // Curve gauge contract, most are tokenized, held by strategy
 
     // keepCRV stuff
     uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
@@ -55,7 +54,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     function stakedBalance() public view returns (uint256) {
-        return proxy.balanceOf(gauge);
+        return gauge.balanceOf(address(this));
     }
 
     function balanceOfWant() public view returns (uint256) {
@@ -73,11 +72,10 @@ abstract contract StrategyCurveBase is BaseStrategy {
         if (emergencyExit) {
             return;
         }
-        // Send all of our LP tokens to the proxy and deposit to the gauge if we have any
+        // Send all of our LP tokens to deposit to the gauge if we have any
         uint256 _toInvest = balanceOfWant();
         if (_toInvest > 0) {
-            want.safeTransfer(address(proxy), _toInvest);
-            proxy.deposit(gauge, address(want));
+            gauge.deposit(_toInvest);
         }
     }
 
@@ -91,9 +89,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
             // check if we have enough free funds to cover the withdrawal
             uint256 _stakedBal = stakedBalance();
             if (_stakedBal > 0) {
-                proxy.withdraw(
-                    gauge,
-                    address(want),
+                gauge.withdraw(
                     Math.min(_stakedBal, _amountNeeded.sub(_wantBal))
                 );
             }
@@ -111,7 +107,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         uint256 _stakedBal = stakedBalance();
         if (_stakedBal > 0) {
             // don't bother withdrawing zero
-            proxy.withdraw(gauge, address(want), _stakedBal);
+            gauge.withdraw(_stakedBal);
         }
         return balanceOfWant();
     }
@@ -119,7 +115,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     function prepareMigration(address _newStrategy) internal override {
         uint256 _stakedBal = stakedBalance();
         if (_stakedBal > 0) {
-            proxy.withdraw(gauge, address(want), _stakedBal);
+            gauge.withdraw(_stakedBal);
         }
     }
 
@@ -155,11 +151,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
     {
         forceHarvestTriggerOnce = _forceHarvestTriggerOnce;
     }
-
-    // Use to update Yearn's StrategyProxy contract as needed in case of upgrades.
-    function setProxy(address _proxy) external onlyGovernance {
-        proxy = ICurveStrategyProxy(_proxy);
-    }
 }
 
 contract StrategyCurveConcentratedstETH is StrategyCurveBase {
@@ -178,10 +169,6 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
     address internal constant sushiswap =
         0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // this is the router we swap with, sushi
 
-    // use Curve to sell our CRV rewards to WETH
-    ICurveFi internal constant crveth =
-        ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
-
     address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // yearn's voter
 
     /* ========== CONSTRUCTOR ========== */
@@ -196,8 +183,7 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
         creditThreshold = 500 * 1e18;
 
         // these are our standard approvals. want = Curve LP token
-        want.approve(address(proxy), type(uint256).max);
-        crv.approve(address(crveth), type(uint256).max);
+        want.approve(address(gauge), type(uint256).max);
         ldo.approve(sushiswap, type(uint256).max);
 
         // set our strategy's name
@@ -219,27 +205,11 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
             uint256 _debtPayment
         )
     {
-        // if we have anything in the gauge, then harvest CRV from the gauge
-        uint256 _stakedBal = stakedBalance();
-        if (_stakedBal > 0) {
-            proxy.harvest(gauge);
-        }
-
-        uint256 crvBalance = crv.balanceOf(address(this));
-        // if we claimed any CRV, then sell it
-        if (crvBalance > 0) {
-            // keep some of our CRV to increase our boost
-            uint256 sendToVoter = crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
-            if (keepCRV > 0) {
-                crv.safeTransfer(voter, sendToVoter);
-            }
-
-            // check our balance again after transferring some crv to our voter
-            crvBalance = crv.balanceOf(address(this));
-        }
+        // harvest our rewards from the gauge
+        gauge.claim_rewards();
 
         // do this every time
-        _sell(crvBalance);
+        _sell();
 
         uint256 wethBalance = weth.balanceOf(address(this));
         // deposit our balance to Curve if we have any
@@ -252,11 +222,7 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
         if (_debtOutstanding > 0) {
             if (stakedBal > 0) {
                 // don't bother withdrawing if we don't have staked funds
-                proxy.withdraw(
-                    gauge,
-                    address(want),
-                    Math.min(stakedBal, _debtOutstanding)
-                );
+                gauge.withdraw(Math.min(stakedBal, _debtOutstanding));
             }
             uint256 _withdrawnBal = balanceOfWant();
             _debtPayment = Math.min(_debtOutstanding, _withdrawnBal);
@@ -284,12 +250,8 @@ contract StrategyCurveConcentratedstETH is StrategyCurveBase {
         forceHarvestTriggerOnce = false;
     }
 
-    // Sells our LDO for WETH on sushi and CRV if we have it on Curve
-    function _sell(uint256 _crvAmount) internal {
-        if (_crvAmount > 0) {
-            crveth.exchange(1, 0, _crvAmount, 0, false);
-        }
-
+    // Sells our LDO for WETH on sushi
+    function _sell() internal {
         uint256 ldoBalance = ldo.balanceOf(address(this));
         if (ldoBalance > 0) {
             address[] memory path = new address[](2);

@@ -9,7 +9,7 @@ def isolation(fn_isolation):
 
 
 # set this for if we want to use tenderly or not; mostly helpful because with brownie.reverts fails in tenderly forks.
-use_tenderly = True
+use_tenderly = False
 
 ################################################## TENDERLY DEBUGGING ##################################################
 
@@ -102,12 +102,12 @@ def proxy():
 
 @pytest.fixture(scope="function")
 def dai():
-    yield Contract("0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1")
+    yield Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
 
 
 @pytest.fixture(scope="function")
 def other_vault_strategy():
-    yield Contract("0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1")
+    yield Contract("0x2055CFD5CDbc90c60A202A1AC3DDfB71AeC1cE98")
 
 
 @pytest.fixture(scope="module")
@@ -215,7 +215,7 @@ def strategy(
     vault.setManagementFee(0, {"from": gov})
     # add our new strategy
     vault.addStrategy(strategy, 10_000, 0, 2**256 - 1, 0, {"from": gov})
-    proxy.approveStrategy(strategy.gauge(), strategy, {"from": gov})
+    # proxy.approveStrategy(strategy.gauge(), strategy, {"from": gov})
     strategy.setHealthCheck(healthCheck, {"from": gov})
     strategy.setDoHealthCheck(True, {"from": gov})
     chain.sleep(1)
