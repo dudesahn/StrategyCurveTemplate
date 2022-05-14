@@ -1,5 +1,5 @@
 import pytest
-from brownie import config, Contract, convert, config
+from brownie import config, Contract, convert, config, Wei, interface
 
 
 @pytest.fixture(scope="module")
@@ -26,7 +26,7 @@ def whale(accounts):
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="module")
 def amount():
-    amount = 5000e18
+    amount = Wei("5_000 ether")
     yield amount
 
 
@@ -55,14 +55,14 @@ def no_profit():
 @pytest.fixture(scope="module")
 def gauge():
     # this should be the address of the curve deposit token
-    gauge = Contract(convert.to_address(config["contracts"]["gauge"]))
+    gauge = interface.ICurveGauge(convert.to_address(config["contracts"]["gauge"]))
     yield gauge
 
 
 # curve deposit pool
 @pytest.fixture(scope="module")
 def pool():
-    pool = Contract(convert.to_address(config["contracts"]["pool"]))
+    pool = interface.ICurvePool(convert.to_address(config["contracts"]["pool"]))
     yield pool
 
 
@@ -71,33 +71,34 @@ def pool():
 def token():
     # this should be the address of the ERC-20 used by the strategy/vault.
     # note that the pool is tokenized so the address is the same as above.
-    token = Contract(convert.to_address(config["contracts"]["token"]))
+    token = interface.ERC20(convert.to_address(config["contracts"]["token"]))
     yield token
 
 
 @pytest.fixture(scope="module")
 def usdc():
-    usdc = Contract(convert.to_address(config["contracts"]["usdc"]))
+    usdc = interface.ERC20(convert.to_address(config["contracts"]["usdc"]))
     yield usdc
 
 
 @pytest.fixture(scope="module")
 def usdt():
-    usdt = Contract(convert.to_address(config["contracts"]["usdt"]))
+    usdt = interface.ERC20(convert.to_address(config["contracts"]["usdt"]))
     yield usdt
 
 
 @pytest.fixture(scope="module")
 def dai():
     # used to test strategy.sweep()
-    dai = Contract(convert.to_address(config["contracts"]["dai"]))
+    dai = interface.ERC20(convert.to_address(config["contracts"]["dai"]))
     yield dai
 
 
 @pytest.fixture(scope="module")
 def rewardToken():
-    # this should be the address of the ERC-20 rewarded by the gauge, by staking the want token.
-    rewardToken = Contract(convert.to_address(config["contracts"]["crv"]))
+    # this should be the address of the ERC-20 rewarded by the gauge, by staking
+    # the want token.
+    rewardToken = interface.ERC20(convert.to_address(config["contracts"]["crv"]))
     yield rewardToken
 
 

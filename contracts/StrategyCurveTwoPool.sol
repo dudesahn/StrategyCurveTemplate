@@ -32,8 +32,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
   bool internal forceHarvestTriggerOnce; // only set this to true externally when we want to trigger our keepers to harvest for us
   uint256 public creditThreshold; // amount of credit in underlying tokens that will automatically trigger a harvest
 
-  string internal stratName; // set our strategy name here
-
   /* ========== CONSTRUCTOR ========== */
 
   constructor(
@@ -68,10 +66,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
   }
 
   /* ========== VIEWS ========== */
-
-  function name() external view override returns (string memory) {
-    return stratName;
-  }
 
   function stakedBalance() public view returns (uint256) {
     return gauge.balanceOf(address(this));
@@ -223,10 +217,12 @@ contract StrategyCurveTwoPool is StrategyCurveBase {
   uint24 public wethToTargetSwapFee;
   uint24 internal constant maxFee = 10000;
 
+  string internal stratName; // set our strategy name here
+
   /* ============= CONSTRUCTOR =========== */
   constructor(
     address _vault,
-    string memory _name,
+    string memory _stratName,
     address _usdtAddress,
     address _usdcAddress,
     address _healthCheckAddress,
@@ -248,7 +244,7 @@ contract StrategyCurveTwoPool is StrategyCurveBase {
     )
   {
     // Set our strategy's name
-    stratName = _name;
+    stratName = _stratName;
 
     usdt = IERC20(_usdtAddress);
     usdc = IERC20(_usdcAddress);
@@ -345,6 +341,12 @@ contract StrategyCurveTwoPool is StrategyCurveBase {
     );
   }
 
+  /* ========== VIEWS ========== */
+
+  function name() external view override returns (string memory) {
+    return stratName;
+  }
+
   /* ========== SETTERS ========== */
 
   // These functions are useful for setting parameters of the strategy that may need to be adjusted.
@@ -352,9 +354,11 @@ contract StrategyCurveTwoPool is StrategyCurveBase {
   // Default is USDC, but can be set to USDT as needed by strategist or governance.
   function setTargetToken(uint256 _target) external onlyVaultManagers {
     require(_target == 0 || _target == 1); // dev: not a valid index => use 0: USDT 1: USDC
-    targetTokenAddress = address(usdt);
+
     if (_target == 1) {
       targetTokenAddress = address(usdc);
+    } else {
+      targetTokenAddress = address(usdt);
     }
   }
 

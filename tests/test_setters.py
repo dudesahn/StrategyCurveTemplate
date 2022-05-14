@@ -25,6 +25,7 @@ def test_setters(
     strategy.setForceHarvestTriggerOnce(True, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
     assert tx == True, "Should we harvest? Should have been true."
+    chain.sleep(1)
 
     strategy.harvest({"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})

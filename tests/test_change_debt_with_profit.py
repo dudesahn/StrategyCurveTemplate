@@ -60,7 +60,7 @@ def test_change_debt_with_profit(
             new_params["totalGain"] - prev_params["totalGain"], donation, abs_tol=10
         )
     else:
-        assert new_params["totalGain"] - prev_params["totalGain"] > donation
+        assert new_params["totalGain"] - prev_params["totalGain"] >= donation
 
     # check to make sure that our debtRatio is about half of our previous debt
     assert new_params["debtRatio"] == currentDebt / 2

@@ -1,6 +1,8 @@
 strategy:
   name: StrategyCurveTwoPool
 
+dotenv: .env
+
 # Use a fork for Arbitrum mainnet as the degault ganache network
 networks:
   default: arb-main-fork
@@ -28,7 +30,7 @@ reports:
 contracts:
   # contracts used by the strategy
   registry: "0x3199437193625DCcD6F9C9e98BDf93582200Eb1f"
-  gauge: "0xbF7E49483881C76487b0989CD7d9A8239B20CA41"
+  gauge: "0xCE5F24B7A95e9cBa7df4B54E911B4A3Dc8CDAf6f"
   # pool and token addresses are the same
   pool: "0x7f90122BF0700F9E7e1F688fe926940E8839F353"
   token: "0x7f90122BF0700F9E7e1F688fe926940E8839F353" # want

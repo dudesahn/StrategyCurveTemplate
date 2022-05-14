@@ -13,7 +13,8 @@ def getStrategySnapshot(strategy):
     target = interface.ERC20(strategy.targetTokenAddress())
     want = interface.ERC20(strategy.want())
     crv = interface.ERC20(strategy.crv())
-    gauge = interface.ERC20(strategy.gauge())
+    gauge = interface.ICurveGauge(strategy.gauge())
+    gaugeToken = interface.ERC20(strategy.gauge())
     vault = interface.VaultAPI(strategy.vault())
 
     print("#######################################################")
@@ -24,11 +25,14 @@ def getStrategySnapshot(strategy):
         f"""
                    Vault: {vault.name()} ({vault.symbol()})
    Strategy Total Assets: {strategy.estimatedTotalAssets()} ({want.symbol()}) 
-          Strategy Balances:
-                             Want: {strategy.balanceOfWant()} ({want.symbol()})
-                     Target Token: {target.balanceOf(strategy)} ({target.symbol()})
-                              CRV: {crv.balanceOf(strategy)} ({crv.symbol()})
-                      Curve Gauge: {strategy.stakedBalance()} ({gauge.symbol()})
+       Strategy Balances:
+                        Want: {strategy.balanceOfWant()} ({want.symbol()})
+                Target Token: {target.balanceOf(strategy)} ({target.symbol()})
+                         CRV: {crv.balanceOf(strategy)} ({crv.symbol()})
+               Claimable CRV: {gauge.claimable_reward.call(strategy, crv,{"from": 
+strategy})} ({crv.symbol()})
+                 Gauge Token: {strategy.stakedBalance()} ({gaugeToken.symbol()})
+       Gauge CRV Balance: {crv.balanceOf(gaugeToken)} ({crv.symbol()})
         Credit Threshold: {strategy.creditThreshold()}
           Debt Threshold: {strategy.debtThreshold()}
         Delegated Assets: {strategy.delegatedAssets()}
