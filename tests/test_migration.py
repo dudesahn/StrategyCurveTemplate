@@ -1,6 +1,4 @@
 import brownie
-from brownie import Contract
-from brownie import config
 import math
 
 
@@ -81,3 +79,56 @@ def test_migration(
         vaultAssets_2, startingVault, abs_tol=5
     )
     print("\nAssets after 1 day harvest: ", vaultAssets_2)
+
+
+def test_migration_from_real_strat(
+    gov,
+    vaultDeployed,
+    strategist,
+    chain,
+    healthCheck,
+    strategy_to_migrate_from,
+    StrategyCurveTricrypto,
+    strategy_name,
+):
+
+    strategy_to_migrate_from.harvest({"from": gov})
+
+    total_old = strategy_to_migrate_from.estimatedTotalAssets()
+
+    # deploy our new strategy
+    new_strategy = strategist.deploy(
+        StrategyCurveTricrypto,
+        vaultDeployed,
+        strategy_name,
+    )
+
+    # migrate our old strategy
+    vaultDeployed.migrateStrategy(strategy_to_migrate_from, new_strategy, {"from": gov})
+    new_strategy.setHealthCheck(healthCheck, {"from": gov})
+    new_strategy.setDoHealthCheck(True, {"from": gov})
+
+    # assert that our old strategy is empty
+    updated_total_old = strategy_to_migrate_from.estimatedTotalAssets()
+    assert updated_total_old == 0
+
+    # harvest to get funds back in strategy
+    new_strategy.harvest({"from": gov})
+    new_strat_balance = new_strategy.estimatedTotalAssets()
+
+    # confirm the same amount of assets were moved to the new strat
+    assert new_strat_balance == total_old
+
+    startingVault = vaultDeployed.totalAssets()
+    print("\nVault starting assets with new strategy: ", startingVault)
+
+    # simulate one day of earnings
+    chain.sleep(86400)
+    chain.mine(1)
+
+    # Test out our migrated strategy, confirm we're making a profit
+    new_strategy.harvest({"from": gov})
+    vaultAssets_2 = vaultDeployed.totalAssets()
+
+    # confirm we made money
+    assert vaultAssets_2 > startingVault

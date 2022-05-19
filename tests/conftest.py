@@ -11,14 +11,14 @@ def isolation(fn_isolation):
 def whale(accounts):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0x4d51B782DA9e2cD073916bd4e9eC6d06916B049e", force=True)
+    whale = accounts.at("0x7A5ea5F5D1bEB6dD9f9De01487043FD9BCa81996", force=True)
     yield whale
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="module")
-def amount():
-    amount = 50e18
+def amount(token, whale):
+    amount = token.balanceOf(whale) // 2
     yield amount
 
 
@@ -42,10 +42,15 @@ def voter():
 def crv():
     yield Contract("0x1E4F97b9f9F913c46F1632781732927B9019C68b")
 
-
 @pytest.fixture(scope="module")
 def other_vault_strategy():
     yield Contract("0xfF8bb7261E4D51678cB403092Ae219bbEC52aa51")
+
+# only applicable if you are migrating an existing strategy (i.e., you are not
+# deploying a brand new one). This strat is using an old version of a curve gauge
+@pytest.fixture(scope="module")
+def strategy_to_migrate_from():
+    yield Contract("0xcF3b91D83cD5FE15269E6461098fDa7d69138570")
 
 
 @pytest.fixture(scope="module")
@@ -77,7 +82,7 @@ def zero_address():
 @pytest.fixture(scope="module")
 def gauge():
     # this should be the address of the convex deposit token
-    gauge = "0x00702BbDEaD24C40647f235F15971dB0867F6bdB"
+    gauge = "0x319E268f0A4C85D404734ee7958857F5891506d7"
     yield Contract(gauge)
 
 
@@ -146,10 +151,10 @@ def vault(pm, gov, rewards, guardian, management, token, chain):
 
 
 # use this if your vault is already deployed
-# @pytest.fixture(scope="function")
-# def vault(pm, gov, rewards, guardian, management, token, chain):
-#     vault = Contract("0x497590d2d57f05cf8B42A36062fA53eBAe283498")
-#     yield vault
+@pytest.fixture(scope="function")
+def vaultDeployed():
+    vaultDeployed = Contract("0xCbCaF8cB8cbeAFA927ECEE0c5C56560F83E9B7D9")
+    yield vaultDeployed
 
 
 # replace the first value with the name of your strategy

@@ -21,6 +21,10 @@ interface IGauge {
     function withdraw(uint256) external;
 }
 
+interface IGaugeFactory {
+  function mint(address _gauge) external;
+}
+
 interface ICurveFi {
     function get_virtual_price() external view returns (uint256);
 

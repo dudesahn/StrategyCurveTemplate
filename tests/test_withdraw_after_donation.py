@@ -479,7 +479,7 @@ def test_withdraw_after_donation_7(
     current_assets = vault.totalAssets()
 
     # assert that our total assets have gone up or stayed the same when accounting for the donation and withdrawal
-    assert current_assets >= donation - withdrawal + prev_assets
+    assert current_assets > donation - withdrawal + prev_assets
 
     new_params = vault.strategies(strategy).dict()
 
@@ -562,7 +562,7 @@ def test_withdraw_after_donation_8(
     current_assets = vault.totalAssets()
 
     # assert that our total assets have gone up or stayed the same when accounting for the donation and withdrawal
-    assert current_assets >= donation - withdrawal + prev_assets
+    assert current_assets > donation - withdrawal + prev_assets
 
     new_params = vault.strategies(strategy).dict()
 
