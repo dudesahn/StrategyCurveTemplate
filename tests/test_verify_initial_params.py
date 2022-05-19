@@ -39,7 +39,7 @@ def test_verify_initial_params(strategy, healthCheck, vault):
 
     assert strategy.want() == config["contracts"]["token"]
     assert strategy.gauge() == config["contracts"]["gauge"]
-    assert strategy.targetTokenAddress() == config["contracts"]["usdt"]
+    assert strategy.targetTokenAddress() == config["contracts"]["usdc"]
 
     # The maximum number of seconds between harvest calls.
     assert (

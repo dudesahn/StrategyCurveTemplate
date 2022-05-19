@@ -1,4 +1,4 @@
-from brownie import interface
+from brownie import interface, chain
 
 
 def getSnapshot(vault, strategy):
@@ -14,8 +14,11 @@ def getStrategySnapshot(strategy):
     want = interface.ERC20(strategy.want())
     crv = interface.ERC20(strategy.crv())
     gauge = interface.ICurveGauge(strategy.gauge())
+    gaugeFactory = interface.ICurveGaugeFactory(gauge.factory())
     gaugeToken = interface.ERC20(strategy.gauge())
     vault = interface.VaultAPI(strategy.vault())
+
+    weeksNum = chain.time() // (24 * 60 * 60 * 7)
 
     print("#######################################################")
     print(f"Strategy: {strategy.name()} ########################")
@@ -23,20 +26,21 @@ def getStrategySnapshot(strategy):
 
     print(
         f"""
-                   Vault: {vault.name()} ({vault.symbol()})
-   Strategy Total Assets: {strategy.estimatedTotalAssets()} ({want.symbol()}) 
-       Strategy Balances:
+                    Vault: {vault.name()} ({vault.symbol()})
+    Strategy Total Assets: {strategy.estimatedTotalAssets()} ({want.symbol()}) 
+        Strategy Balances:
                         Want: {strategy.balanceOfWant()} ({want.symbol()})
                 Target Token: {target.balanceOf(strategy)} ({target.symbol()})
                          CRV: {crv.balanceOf(strategy)} ({crv.symbol()})
-               Claimable CRV: {gauge.claimable_reward.call(strategy, crv,{"from": 
+               Claimable CRV: {gauge.claimable_tokens.call(strategy,{"from": 
 strategy})} ({crv.symbol()})
                  Gauge Token: {strategy.stakedBalance()} ({gaugeToken.symbol()})
-       Gauge CRV Balance: {crv.balanceOf(gaugeToken)} ({crv.symbol()})
-        Credit Threshold: {strategy.creditThreshold()}
-          Debt Threshold: {strategy.debtThreshold()}
-        Delegated Assets: {strategy.delegatedAssets()}
-  Strategy Profit Factor: {strategy.profitFactor()}
+Factory Gauge CRV Balance: {crv.balanceOf(gaugeFactory)} ({crv.symbol()}) 
+            CRV Inflation: {gauge.inflation_rate(weeksNum)} ({crv.symbol()}) 
+         Credit Threshold: {strategy.creditThreshold()}
+           Debt Threshold: {strategy.debtThreshold()}
+         Delegated Assets: {strategy.delegatedAssets()}
+   Strategy Profit Factor: {strategy.profitFactor()}
         \n"""
     )
 

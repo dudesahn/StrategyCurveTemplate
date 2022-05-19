@@ -78,15 +78,11 @@ def test_simple_harvest(
     chain.sleep(60 * 60 * hours)
     chain.mine(1)
 
-    # Check that there's CRV in the gauge
-    gaugeCrvAmount = rewardToken.balanceOf(gauge)
+    print("#######################################################")
+    print(f"Claimable reward right before harvest ################")
+    print("#######################################################\n")
 
-    if gaugeCrvAmount == 0:
-        warn("No CRV in the gauge that can be claimed by gauge token holders.")
-    else:
-        # If there's CRV in the gauge, then we must have a non-zero claim
-        stratClaimableCrv = gauge.claimable_reward.call(strategy, rewardToken)
-        assert stratClaimableCrv > 0, "No CRV that can be claimed by the strategy"
+    getSnapshot(vault, strategy)
 
     # harvest, store new asset amount
     strategy.harvest({"from": gov})
@@ -105,8 +101,8 @@ def test_simple_harvest(
 
     new_assets = vault.totalAssets()
 
-    # confirm we made money, or at least that we have about the same
-    assert new_assets >= old_assets
+    # confirm we made money
+    assert new_assets > old_assets
 
     # Note that new vault shares are issued to cover fees. This reduces
     # overall share price by the combined fee (perf + mgmt)
@@ -140,7 +136,7 @@ def test_simple_harvest(
     after_harvest_assets = vault.totalAssets()
 
     # confirm we made money, or at least that we have about the same
-    assert after_harvest_assets >= new_assets
+    assert after_harvest_assets > new_assets
 
     print("#######################################################")
     print(f"After {hours} more hours with different target token #######")
@@ -164,16 +160,18 @@ def test_simple_harvest(
     chain.sleep(60 * 60 * hours)
     chain.mine(1)  # needed to accrue CRV for the time elapsed
 
-    # withdraw and confirm we made money, or at least that we have about the same
+    # withdraw and confirm we made money
     vault.withdraw({"from": whale})
-    assert token.balanceOf(whale) >= startingWhale
+    assert token.balanceOf(whale) > startingWhale
 
     # Check that once everyone is out that the outstading shares are equal to those
     # rewarded to the protocol
     assert vault.totalSupply() == vault.balanceOf(vault.rewards())
 
     print("#######################################################")
-    print(f"After {hours} more hours, the whale withdraws ##############")
+    print(f"After {hours} more hours, the whale withdraws ###############")
     print("#######################################################\n")
 
+    # The last snapshot shows that it's better to withdraw shortly after a harvest so the
+    # user does not leave claimable tokens on the table
     getSnapshot(vault, strategy)

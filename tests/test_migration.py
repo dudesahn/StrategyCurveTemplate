@@ -1,5 +1,5 @@
 import math
-from brownie import config, convert
+from brownie import config, convert, reverts, ZERO_ADDRESS
 
 Strategy = config["strategy"]["name"]
 Strategy = getattr(__import__("brownie"), Strategy)
@@ -15,6 +15,8 @@ def test_migration(
     chain,
     healthCheck,
     amount,
+    gauge,
+    rewardToken,
 ):
 
     ## deposit to the vault after approving
@@ -25,18 +27,20 @@ def test_migration(
     chain.sleep(1)
 
     # deploy our new strategy
-    args = [
+    contractAddress = [
         vault.address,
-        config["strategy"]["name"],
+        convert.to_address(config["contracts"]["healthCheck"]),
         convert.to_address(config["contracts"]["usdt"]),
         convert.to_address(config["contracts"]["usdc"]),
-        convert.to_address(config["contracts"]["healthCheck"]),
-        convert.to_address(config["contracts"]["gauge"]),
-        convert.to_address(config["contracts"]["pool"]),
         convert.to_address(config["contracts"]["weth"]),
         convert.to_address(config["contracts"]["crv"]),
         convert.to_address(config["contracts"]["router"]),
+        convert.to_address(config["contracts"]["gauge"]),
+        convert.to_address(config["contracts"]["gaugeFactory"]),
+        convert.to_address(config["contracts"]["pool"]),
     ]
+
+    args = [config["strategy"]["name"], contractAddress]
 
     new_strategy = Strategy.deploy(*args, {"from": strategist})
 
@@ -52,10 +56,25 @@ def test_migration(
     chain.sleep(86400)
     chain.mine(1)
 
+    claimable_tokens = gauge.claimable_tokens.call(strategy)
+
+    assert claimable_tokens > 0, "No tokens to be claimed"
+
     # migrate our old strategy
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
     new_strategy.setHealthCheck(healthCheck, {"from": gov})
     new_strategy.setDoHealthCheck(True, {"from": gov})
+
+    with reverts("!authorized"):
+        strategy.claimRewards({"from": whale})
+
+    strategy.claimRewards({"from": gov})
+
+    assert rewardToken.balanceOf(strategy) > 0, "No tokens were claimed"
+
+    strategy.sweep(rewardToken, {"from": gov})
+
+    assert rewardToken.balanceOf(strategy) == 0, "Tokens were not swept"
 
     # assert that our old strategy is empty
     updated_total_old = strategy.estimatedTotalAssets()
@@ -71,8 +90,8 @@ def test_migration(
         new_strat_balance, total_old, abs_tol=5
     )
 
-    startingVault = vault.totalAssets()
-    print("\nVault starting assets with new strategy: ", startingVault)
+    starting_vault_assets = vault.totalAssets()
+    print("\nVault starting assets with new strategy: ", starting_vault_assets)
 
     # simulate one day of earnings
     chain.sleep(86400)
@@ -81,8 +100,9 @@ def test_migration(
     # Test out our migrated strategy, confirm we're making a profit
     new_strategy.harvest({"from": gov})
     vaultAssets_2 = vault.totalAssets()
-    # confirm we made money, or at least that we have about the same
-    assert vaultAssets_2 >= startingVault or math.isclose(
-        vaultAssets_2, startingVault, abs_tol=5
+
+    # confirm we made money
+    assert vaultAssets_2 > starting_vault_assets or math.isclose(
+        vaultAssets_2, starting_vault_assets, abs_tol=5
     )
     print("\nAssets after 1 day harvest: ", vaultAssets_2)

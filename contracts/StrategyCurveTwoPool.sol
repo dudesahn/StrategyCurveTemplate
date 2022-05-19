@@ -8,9 +8,23 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 
-import { ICurveGauge, ICurvePool } from "../interfaces/ICurveTwoPool.sol";
-import { ISwapRouter } from "../interfaces/ISwapRouter.sol";
+import { ICurveGauge, ICurveGaugeFactory, ICurvePool } from "../interfaces/ICurveTwoPool.sol";
+import { ISwapRouter } from "../interfaces/ISwapRouter.sol"; // Uni V3
 import { BaseStrategy, StrategyParams } from "@yearnvaults/contracts/BaseStrategy.sol";
+
+// To avoid the "stack too deep" error
+struct ContractAddress {
+  address vault;
+  address healthCheck;
+  address usdt;
+  address usdc;
+  address weth;
+  address crv;
+  address router;
+  address gauge;
+  address gaugeFactory;
+  address pool;
+}
 
 abstract contract StrategyCurveBase is BaseStrategy {
   using Address for address;
@@ -20,9 +34,11 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
   ICurveGauge public immutable gauge;
 
+  ICurveGaugeFactory public immutable gaugeFactory;
+
   ICurvePool public immutable curve;
 
-  address internal immutable wethAddress;
+  address public immutable wethAddress;
 
   // Uniswap V3 router
   ISwapRouter public immutable router;
@@ -34,35 +50,30 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
   /* ========== CONSTRUCTOR ========== */
 
-  constructor(
-    address _vaultAddress,
-    address _healthCheckAddress,
-    address _gaugeAddress,
-    address _poolAddress,
-    address _wethAddress,
-    address _crvAddress,
-    address _routerAddress
-  ) public BaseStrategy(_vaultAddress) {
+  constructor(ContractAddress memory _contractsAddress)
+    public
+    BaseStrategy(_contractsAddress.vault)
+  {
     // Curve contracts
-    gauge = ICurveGauge(_gaugeAddress);
-    curve = ICurvePool(_poolAddress);
-    crv = IERC20(_crvAddress);
+    gauge = ICurveGauge(_contractsAddress.gauge);
+    gaugeFactory = ICurveGaugeFactory(_contractsAddress.gaugeFactory);
+    curve = ICurvePool(_contractsAddress.pool);
+    crv = IERC20(_contractsAddress.crv);
 
     // Uniswap V3 router
-    router = ISwapRouter(_routerAddress);
+    router = ISwapRouter(_contractsAddress.router);
 
     // Wrapped ETH - Used for multi-hop swap. No contract instance needed
-    wethAddress = _wethAddress;
-
-    // You can set these parameters on deployment to whatever you want
-    maxReportDelay = 2 days; // 2 days in seconds
+    wethAddress = _contractsAddress.weth;
 
     // Arbitrum healthcheck contract address
-    healthCheck = _healthCheckAddress;
+    healthCheck = _contractsAddress.healthCheck;
 
     // Our standard approvals. want = Curve LP token
-    want.safeApprove(_gaugeAddress, type(uint256).max);
-    crv.safeApprove(_routerAddress, type(uint256).max);
+        want.approve(_contractsAddress.gauge, type(uint256).max);
+        crv.approve(_contractsAddress.router, type(uint256).max);
+
+    maxReportDelay = 2 days; // 2 days in seconds
   }
 
   /* ========== VIEWS ========== */
@@ -123,7 +134,24 @@ abstract contract StrategyCurveBase is BaseStrategy {
     return balanceOfWant();
   }
 
+    function _claimRewards() internal {
+        gaugeFactory.mint(address(gauge));
+    }
+
+    function claimRewards() external onlyVaultManagers {
+        // Claims any pending CRV
+        //
+        // Mints claimable CRV from the factory gauge. Reward tokens are sent to `msg.sender`
+        // The method claim_rewards() from the old gauge now only applies to third-party tokens.
+        // There are no third-party tokens in this strategy.
+        _claimRewards();
+    }
+
   function prepareMigration(address _newStrategy) internal override {
+        // Withdraw LP tokens from the gauge. The transfer to the new strategy is done
+        // by migrate() in BaseStrategy.sol. Note that this function does not claim
+        // any pending rewards. To claim and transfer pending rewards to a new
+        // strategy, please use claimAndTransferRewards()
     uint256 _stakedBal = stakedBalance();
     if (_stakedBal > 0) {
       gauge.withdraw(_stakedBal);
@@ -213,52 +241,31 @@ contract StrategyCurveTwoPool is StrategyCurveBase {
   IERC20 internal usdt;
   IERC20 internal usdc;
 
-  uint24 public crvToWethSwapFee;
-  uint24 public wethToTargetSwapFee;
+  // Uniswap V3 pool fees
+  uint24 public crvToWethSwapFee = 3000;
+  uint24 public wethToTargetSwapFee = 500;
+
   uint24 internal constant maxFee = 10000;
 
   string internal stratName; // set our strategy name here
 
   /* ============= CONSTRUCTOR =========== */
   constructor(
-    address _vault,
     string memory _stratName,
-    address _usdtAddress,
-    address _usdcAddress,
-    address _healthCheckAddress,
-    address _gaugeAddress,
-    address _poolAddress,
-    address _wethAddress,
-    address _crvAddress,
-    address _routerAddress
-  )
-    public
-    StrategyCurveBase(
-      _vault,
-      _healthCheckAddress,
-      _gaugeAddress,
-      _poolAddress,
-      _wethAddress,
-      _crvAddress,
-      _routerAddress
-    )
-  {
+    ContractAddress memory _contractsAddress
+  ) public StrategyCurveBase(_contractsAddress) {
     // Set our strategy's name
     stratName = _stratName;
 
-    usdt = IERC20(_usdtAddress);
-    usdc = IERC20(_usdcAddress);
+    usdt = IERC20(_contractsAddress.usdt);
+    usdc = IERC20(_contractsAddress.usdc);
 
     // Required strategic-specific approvals
-    usdt.safeApprove(_poolAddress, type(uint256).max);
-    usdc.safeApprove(_poolAddress, type(uint256).max);
+        usdt.approve(_contractsAddress.pool, type(uint256).max);
+        usdc.approve(_contractsAddress.pool, type(uint256).max);
 
-    // Start off with USDT
-    targetTokenAddress = _usdtAddress;
-
-    // Uniswap V3 pool fees
-    crvToWethSwapFee = 3000;
-    wethToTargetSwapFee = 500;
+        // Start off with USDC
+        targetTokenAddress = _contractsAddress.usdc;
   }
 
   /* ========== MUTATIVE FUNCTIONS ========== */
@@ -273,12 +280,12 @@ contract StrategyCurveTwoPool is StrategyCurveBase {
       uint256 _debtPayment
     )
   {
-    // harvest our rewards from the gauge
-    gauge.claim_rewards();
+        // Claim and get a fresh snapshot of the strategy's CRV balance
+        _claimRewards();
 
     uint256 crvBalance = crv.balanceOf(address(this));
 
-    // if we claimed any CRV, then sell it
+        // Sell CRV if we have any
     if (crvBalance > 0) {
       _sell(crvBalance);
       uint256 usdtBalance = usdt.balanceOf(address(this));

@@ -59,6 +59,16 @@ def gauge():
     yield gauge
 
 
+# gauge factory for the curve gauge
+@pytest.fixture(scope="module")
+def gaugeFactory():
+    # this should be the address of the curve deposit token
+    gaugeFactory = interface.ICurveGaugeFactory(
+        convert.to_address(config["contracts"]["gaugeFactory"])
+    )
+    yield gaugeFactory
+
+
 # curve deposit pool
 @pytest.fixture(scope="module")
 def pool():
@@ -189,29 +199,31 @@ def vault():
 
 # replace the first value with the name of your strategy
 @pytest.fixture(scope="function")
-def strategy(vault, Strategy, strategist, gov, usdt):
-    # make sure to include all constructor parameters needed here
-    args = [
+def strategy(vault, Strategy, strategist, gov, usdt, usdc):
+
+    contractAddress = [
         vault.address,
-        config["strategy"]["name"],
+        convert.to_address(config["contracts"]["healthCheck"]),
         convert.to_address(config["contracts"]["usdt"]),
         convert.to_address(config["contracts"]["usdc"]),
-        convert.to_address(config["contracts"]["healthCheck"]),
-        convert.to_address(config["contracts"]["gauge"]),
-        convert.to_address(config["contracts"]["pool"]),
         convert.to_address(config["contracts"]["weth"]),
         convert.to_address(config["contracts"]["crv"]),
         convert.to_address(config["contracts"]["router"]),
+        convert.to_address(config["contracts"]["gauge"]),
+        convert.to_address(config["contracts"]["gaugeFactory"]),
+        convert.to_address(config["contracts"]["pool"]),
     ]
+
+    args = [config["strategy"]["name"], contractAddress]
 
     strategy = Strategy.deploy(*args, {"from": strategist})
 
     assert strategy.want() == vault.token(), "The token addresses are not the same."
 
-    # The strategy is deployed with USDT being the target token
+    # The strategy is deployed with USDC being the target token
     assert (
-        strategy.targetTokenAddress() == usdt.address
-    ), "Strategy not initiated with USDT"
+        strategy.targetTokenAddress() == usdc.address
+    ), "Strategy not initiated with USDC"
 
     # params => addStrategy() v0.4.3
     #

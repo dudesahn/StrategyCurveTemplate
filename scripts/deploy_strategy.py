@@ -35,17 +35,22 @@ def main():
 
     publish_source = click.confirm("Verify source on arbiscan?")
 
-    args = [
-        vault.address,
-        config["strategy"]["name"],
+    contractAddress = [
+        vaultAddress,
+        convert.to_address(config["contracts"]["healthCheck"]),
         convert.to_address(config["contracts"]["usdt"]),
         convert.to_address(config["contracts"]["usdc"]),
-        convert.to_address(config["contracts"]["healthCheck"]),
-        convert.to_address(config["contracts"]["gauge"]),
-        convert.to_address(config["contracts"]["pool"]),
         convert.to_address(config["contracts"]["weth"]),
         convert.to_address(config["contracts"]["crv"]),
         convert.to_address(config["contracts"]["router"]),
+        convert.to_address(config["contracts"]["gauge"]),
+        convert.to_address(config["contracts"]["gaugeFactory"]),
+        convert.to_address(config["contracts"]["pool"]),
+    ]
+
+    args = [
+        config["strategy"]["name"],
+        contractAddress
     ]
 
     strategy = StrategyCurveTwoPool.deploy(
