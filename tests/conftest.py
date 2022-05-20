@@ -1,5 +1,5 @@
 import pytest
-from brownie import config, Wei, Contract
+from brownie import config, Contract, interface
 
 # Snapshots the chain before each test and reverts after test completion.
 @pytest.fixture(autouse=True)
@@ -11,14 +11,14 @@ def isolation(fn_isolation):
 def whale(accounts):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0xd2d2F6a38F3A323Df87346413269cdB62cBDDB71", force=True)
+    whale = accounts.at("0xA86D37706162B45ABB83C8C93d380CFE5cD472Ed", force=True)
     yield whale
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="module")
-def amount():
-    amount = 500e18
+def amount(token, whale):
+    amount = token.balanceOf(whale) // 2
     yield amount
 
 
@@ -47,7 +47,7 @@ def no_profit():
 @pytest.fixture(scope="module")
 def gauge():
     # this should be the address of the convex deposit token
-    gauge = "0x97E2768e8E73511cA874545DC5Ff8067eB19B787"
+    gauge = "0x555766f3da968ecBefa690Ffd49A2Ac02f47aa5f"
     yield Contract(gauge)
 
 
@@ -64,6 +64,13 @@ def token():
     # this should be the address of the ERC-20 used by the strategy/vault
     token_address = "0x8e0B8c8BB9db49a46697F3a5Bb8A308e744821D2"
     yield Contract(token_address)
+
+
+@pytest.fixture(scope="module")
+def crv():
+    # this should be the address of the ERC-20 used by the strategy/vault
+    crv_address = "0x11cDb42B0EB46D95f990BeDD4695A6e3fA034978"
+    yield interface.IERC20(crv_address)
 
 
 # Only worry about changing things above this line
@@ -84,6 +91,13 @@ def other_vault_strategy():
     yield Contract("0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1")
 
 
+# only applicable if you are migrating an existing strategy (i.e., you are not
+# deploying a brand new one). This strat is using an old version of a curve gauge
+@pytest.fixture(scope="module")
+def strategy_to_migrate_from():
+    yield Contract("0x19e70E3195fEC1A33745D9260Bf26c3f915Bb0CC")
+
+
 @pytest.fixture(scope="module")
 def healthCheck():
     yield Contract("0x32059ccE723b4DD15dD5cb2a5187f814e6c470bC")
@@ -101,7 +115,7 @@ def zero_address():
 # normal gov is ychad, 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52
 @pytest.fixture(scope="module")
 def gov(accounts):
-    yield accounts.at("0xC0E2830724C946a6748dDFE09753613cd38f6767", force=True)
+    yield accounts.at("0xb6bc033D34733329971B938fEf32faD7e98E56aD", force=True)
 
 
 @pytest.fixture(scope="module")
@@ -153,11 +167,10 @@ def vault(pm, gov, rewards, guardian, management, token, chain):
     yield vault
 
 
-# use this if your vault is already deployed
-# @pytest.fixture(scope="function")
-# def vault(pm, gov, rewards, guardian, management, token, chain):
-#     vault = Contract("0x497590d2d57f05cf8B42A36062fA53eBAe283498")
-#     yield vault
+@pytest.fixture(scope="function")
+def vaultDeployed():
+    vaultDeployed = Contract("0x239e14A19DFF93a17339DCC444f74406C17f8E67")
+    yield vaultDeployed
 
 
 # replace the first value with the name of your strategy
