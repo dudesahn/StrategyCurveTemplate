@@ -75,8 +75,8 @@ def test_odds_and_ends(
     new_strat_balance = new_strategy.estimatedTotalAssets()
     assert new_strat_balance >= total_old
 
-    startingVault = vault.totalAssets()
-    print("\nVault starting assets with new strategy: ", startingVault)
+    starting_vault_assets = vault.totalAssets()
+    print("\nVault starting assets with new strategy: ", starting_vault_assets)
 
     # simulate one day of earnings
     chain.sleep(86400)
@@ -85,7 +85,7 @@ def test_odds_and_ends(
     # Test out our migrated strategy, confirm we're making a profit
     new_strategy.harvest({"from": gov})
     vaultAssets_2 = vault.totalAssets()
-    assert vaultAssets_2 >= startingVault
+    assert vaultAssets_2 >= starting_vault_assets
     print("\nAssets after 1 day harvest: ", vaultAssets_2)
 
     # check our oracle
@@ -201,8 +201,8 @@ def test_odds_and_ends_migration(
         new_strat_balance, total_old, abs_tol=5
     )
 
-    startingVault = vault.totalAssets()
-    print("\nVault starting assets with new strategy: ", startingVault)
+    starting_vault_assets = vault.totalAssets()
+    print("\nVault starting assets with new strategy: ", starting_vault_assets)
 
     # simulate one day of earnings
     chain.sleep(86400)
@@ -216,8 +216,8 @@ def test_odds_and_ends_migration(
     new_strategy.harvest({"from": gov})
     vaultAssets_2 = vault.totalAssets()
     # confirm we made money, or at least that we have about the same
-    assert vaultAssets_2 >= startingVault or math.isclose(
-        vaultAssets_2, startingVault, abs_tol=5
+    assert vaultAssets_2 >= starting_vault_assets or math.isclose(
+        vaultAssets_2, starting_vault_assets, abs_tol=5
     )
     print("\nAssets after 1 day harvest: ", vaultAssets_2)
 

@@ -18,6 +18,7 @@ def test_migration(
     pool,
     strategy_name,
     gauge,
+    crv,
 ):
 
     ## deposit to the vault after approving
@@ -45,10 +46,32 @@ def test_migration(
     chain.sleep(86400)
     chain.mine(1)
 
+    claimable_tokens = gauge.claimable_tokens.call(strategy)
+    crv_balance_old_strat = crv.balanceOf(strategy)
+
+    assert claimable_tokens > 0, "No tokens to be claimed"
+
     # migrate our old strategy
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
     new_strategy.setHealthCheck(healthCheck, {"from": gov})
     new_strategy.setDoHealthCheck(True, {"from": gov})
+
+    with brownie.reverts('!authorized'):
+        tx=strategy.claimAndTransferRewards(new_strategy, {"from": whale})
+
+    with brownie.reverts():
+        tx=strategy.claimAndTransferRewards(brownie.ZERO_ADDRESS, {"from": gov})
+
+    strategy.claimAndTransferRewards(new_strategy, {"from": gov})
+
+    migrated_crv = crv.balanceOf(new_strategy)
+
+    assert migrated_crv >= (
+        claimable_tokens + crv_balance_old_strat
+    ), "Not everything transfered as expected"
+
+    claimable_tokens = gauge.claimable_tokens.call(strategy)
+    assert claimable_tokens == 0, "Left rewards behind"
 
     # assert that our old strategy is empty
     updated_total_old = strategy.estimatedTotalAssets()
@@ -64,8 +87,8 @@ def test_migration(
         new_strat_balance, total_old, abs_tol=5
     )
 
-    startingVault = vault.totalAssets()
-    print("\nVault starting assets with new strategy: ", startingVault)
+    starting_vault_assets = vault.totalAssets()
+    print("\nVault starting assets with new strategy: ", starting_vault_assets)
 
     # simulate one day of earnings
     chain.sleep(86400)
@@ -75,8 +98,8 @@ def test_migration(
     new_strategy.harvest({"from": gov})
     vaultAssets_2 = vault.totalAssets()
     # confirm we made money, or at least that we have about the same
-    assert vaultAssets_2 >= startingVault or math.isclose(
-        vaultAssets_2, startingVault, abs_tol=5
+    assert vaultAssets_2 >= starting_vault_assets or math.isclose(
+        vaultAssets_2, starting_vault_assets, abs_tol=5
     )
     print("\nAssets after 1 day harvest: ", vaultAssets_2)
 
@@ -105,7 +128,6 @@ def test_migration_from_real_strat(
 
     # migrate our old strategy
     vaultDeployed.migrateStrategy(strategy_to_migrate_from, new_strategy, {"from": gov})
-    new_strategy.setHealthCheck(healthCheck, {"from": gov})
     new_strategy.setDoHealthCheck(True, {"from": gov})
 
     # assert that our old strategy is empty
@@ -119,8 +141,8 @@ def test_migration_from_real_strat(
     # confirm the same amount of assets were moved to the new strat
     assert new_strat_balance == total_old
 
-    startingVault = vaultDeployed.totalAssets()
-    print("\nVault starting assets with new strategy: ", startingVault)
+    starting_vault_assets = vaultDeployed.totalAssets()
+    print("\nVault starting assets with new strategy: ", starting_vault_assets)
 
     # simulate one day of earnings
     chain.sleep(86400)
@@ -131,4 +153,4 @@ def test_migration_from_real_strat(
     vaultAssets_2 = vaultDeployed.totalAssets()
 
     # confirm we made money
-    assert vaultAssets_2 > startingVault
+    assert vaultAssets_2 > starting_vault_assets

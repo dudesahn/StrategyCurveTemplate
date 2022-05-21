@@ -9,32 +9,9 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 
-import "./interfaces/curve.sol";
-import "./interfaces/yearn.sol";
-import {IUniswapV2Router02} from "./interfaces/uniswap.sol";
-import {
-    BaseStrategy,
-    StrategyParams
-} from "@yearnvaults/contracts/BaseStrategy.sol";
-
-interface IBaseFee {
-    function isCurrentBaseFeeAcceptable() external view returns (bool);
-}
-
-interface IUniV3 {
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    function exactInput(ExactInputParams calldata params)
-        external
-        payable
-        returns (uint256 amountOut);
-}
+import { IGauge, IGaugeFactory, ICurveFi } from "./interfaces/curve.sol";
+import { IUniswapV2Router02 } from "./interfaces/uniswap.sol";
+import { BaseStrategy, StrategyParams } from "@yearnvaults/contracts/BaseStrategy.sol";
 
 abstract contract StrategyCurveBase is BaseStrategy {
     using SafeERC20 for IERC20;
@@ -133,7 +110,34 @@ abstract contract StrategyCurveBase is BaseStrategy {
         return balanceOfWant();
     }
 
+    function claimRewards() internal {
+        // Claims any pending CRV
+        //
+        // Mints claimable CRV from the factory gauge. Reward tokens are sent to `msg.sender`
+        // The method claim_rewards() from the old gauge now only applies to third-party tokens.
+        // There are no third-party tokens in this strategy.
+        gaugeFactory.mint(address(gauge));
+    }
+
+    function claimAndTransferRewards(address _targetAdress)
+        external
+        onlyVaultManagers
+    {
+        require(_targetAdress != address(0));
+
+        // Claim any pending rewards and transfer CRV balance to the new strategy
+        claimRewards();
+
+        uint256 crvBalance = crv.balanceOf(address(this));
+
+        if (crvBalance > 0) {
+            crv.safeTransfer(_targetAdress, crvBalance);
+        }
+    }
+
     function prepareMigration(address _newStrategy) internal override {
+        // Withdraw LP tokens from the gauge. The transfer to the new strategy is done
+        // by migrate() in BaseStrategy.sol
         uint256 _stakedBal = stakedBalance();
         if (_stakedBal > 0) {
             gauge.withdraw(_stakedBal);
@@ -228,11 +232,12 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
             uint256 _debtPayment
         )
     {
-    // Mint claimable CRV from the factory gauge. The old claim_rewards() function now only applies to third-party tokens
-    gaugeFactory.mint(address(gauge));
+        // Claim and get a fresh snapshot of the strategy's CRV balance
+        claimRewards();
 
         uint256 crvBalance = crv.balanceOf(address(this));
-        // if we claimed any CRV, then sell it
+
+        // Sell CRV if we have any
         if (crvBalance > 0) {
             // keep some of our CRV to increase our boost
             uint256 sendToVoter = crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
