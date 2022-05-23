@@ -23,10 +23,10 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     // Curve stuff
     IGauge public constant gauge =
-    IGauge(0x319E268f0A4C85D404734ee7958857F5891506d7); // Curve gauge contract, most are tokenized, held by strategy
+        IGauge(0x319E268f0A4C85D404734ee7958857F5891506d7); // Curve gauge contract, most are tokenized, held by strategy
 
     IGaugeFactory public constant gaugeFactory =
-    IGaugeFactory(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
+        IGaugeFactory(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
 
     // keepCRV stuff
     uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
@@ -110,29 +110,17 @@ abstract contract StrategyCurveBase is BaseStrategy {
         return balanceOfWant();
     }
 
-    function claimRewards() internal {
+    function _claimRewards() internal {
+        gaugeFactory.mint(address(gauge));
+    }
+
+    function claimRewards() external onlyVaultManagers {
         // Claims any pending CRV
         //
         // Mints claimable CRV from the factory gauge. Reward tokens are sent to `msg.sender`
         // The method claim_rewards() from the old gauge now only applies to third-party tokens.
         // There are no third-party tokens in this strategy.
-        gaugeFactory.mint(address(gauge));
-    }
-
-    function claimAndTransferRewards(address _targetAdress)
-        external
-        onlyVaultManagers
-    {
-        require(_targetAdress != address(0));
-
-        // Claim any pending rewards and transfer CRV balance to the new strategy
-        claimRewards();
-
-        uint256 crvBalance = crv.balanceOf(address(this));
-
-        if (crvBalance > 0) {
-            crv.safeTransfer(_targetAdress, crvBalance);
-        }
+        _claimRewards();
     }
 
     function prepareMigration(address _newStrategy) internal override {
@@ -233,7 +221,7 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
         )
     {
         // Claim and get a fresh snapshot of the strategy's CRV balance
-        claimRewards();
+        _claimRewards();
 
         uint256 crvBalance = crv.balanceOf(address(this));
 
@@ -298,18 +286,18 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
 
     // Sells our CRV for our target token
     function _sellToken(address token, uint256 _amount) internal {
-            address[] memory tokenPath = new address[](3);
-            tokenPath[0] = address(token);
-            tokenPath[1] = address(wftm);
-            tokenPath[2] = address(targetToken);
-            IUniswapV2Router02(router).swapExactTokensForTokens(
-                _amount,
-                uint256(0),
-                tokenPath,
-                address(this),
-                block.timestamp
-            );
-        }
+        address[] memory tokenPath = new address[](3);
+        tokenPath[0] = address(token);
+        tokenPath[1] = address(wftm);
+        tokenPath[2] = address(targetToken);
+        IUniswapV2Router02(router).swapExactTokensForTokens(
+            _amount,
+            uint256(0),
+            tokenPath,
+            address(this),
+            block.timestamp
+        );
+    }
 
     /* ========== KEEP3RS ========== */
 

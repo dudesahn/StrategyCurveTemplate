@@ -22,7 +22,7 @@ def test_migration(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -56,22 +56,16 @@ def test_migration(
     new_strategy.setHealthCheck(healthCheck, {"from": gov})
     new_strategy.setDoHealthCheck(True, {"from": gov})
 
-    with brownie.reverts('!authorized'):
-        tx=strategy.claimAndTransferRewards(new_strategy, {"from": whale})
+    with brownie.reverts("!authorized"):
+        strategy.claimRewards({"from": whale})
 
-    with brownie.reverts():
-        tx=strategy.claimAndTransferRewards(brownie.ZERO_ADDRESS, {"from": gov})
+    strategy.claimRewards({"from": gov})
 
-    strategy.claimAndTransferRewards(new_strategy, {"from": gov})
+    assert crv.balanceOf(strategy) > 0, "No tokens were claimed"
 
-    migrated_crv = crv.balanceOf(new_strategy)
+    strategy.sweep(crv, {"from": gov})
 
-    assert migrated_crv >= (
-        claimable_tokens + crv_balance_old_strat
-    ), "Not everything transfered as expected"
-
-    claimable_tokens = gauge.claimable_tokens.call(strategy)
-    assert claimable_tokens == 0, "Left rewards behind"
+    assert crv.balanceOf(strategy) == 0, "Tokens were not swept"
 
     # assert that our old strategy is empty
     updated_total_old = strategy.estimatedTotalAssets()
