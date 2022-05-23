@@ -9,32 +9,9 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 
-import "./interfaces/curve.sol";
-import "./interfaces/yearn.sol";
-import {IUniswapV2Router02} from "./interfaces/uniswap.sol";
-import {
-    BaseStrategy,
-    StrategyParams
-} from "@yearnvaults/contracts/BaseStrategy.sol";
-
-interface IBaseFee {
-    function isCurrentBaseFeeAcceptable() external view returns (bool);
-}
-
-interface IUniV3 {
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    function exactInput(ExactInputParams calldata params)
-        external
-        payable
-        returns (uint256 amountOut);
-}
+import { IGauge, IGaugeFactory, ICurveFi } from "./interfaces/curve.sol";
+import { IUniswapV2Router02 } from "./interfaces/uniswap.sol";
+import { BaseStrategy, StrategyParams } from "@yearnvaults/contracts/BaseStrategy.sol";
 
 abstract contract StrategyCurveBase is BaseStrategy {
     using SafeERC20 for IERC20;
@@ -46,7 +23,10 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     // Curve stuff
     IGauge public constant gauge =
-        IGauge(0x00702BbDEaD24C40647f235F15971dB0867F6bdB); // Curve gauge contract, most are tokenized, held by strategy
+        IGauge(0x319E268f0A4C85D404734ee7958857F5891506d7); // Curve gauge contract, most are tokenized, held by strategy
+
+    IGaugeFactory public constant gaugeFactory =
+        IGaugeFactory(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
 
     // keepCRV stuff
     uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
@@ -130,7 +110,22 @@ abstract contract StrategyCurveBase is BaseStrategy {
         return balanceOfWant();
     }
 
+    function _claimRewards() internal {
+        gaugeFactory.mint(address(gauge));
+    }
+
+    function claimRewards() external onlyVaultManagers {
+        // Claims any pending CRV
+        //
+        // Mints claimable CRV from the factory gauge. Reward tokens are sent to `msg.sender`
+        // The method claim_rewards() from the old gauge now only applies to third-party tokens.
+        // There are no third-party tokens in this strategy.
+        _claimRewards();
+    }
+
     function prepareMigration(address _newStrategy) internal override {
+        // Withdraw LP tokens from the gauge. The transfer to the new strategy is done
+        // by migrate() in BaseStrategy.sol
         uint256 _stakedBal = stakedBalance();
         if (_stakedBal > 0) {
             gauge.withdraw(_stakedBal);
@@ -199,9 +194,7 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
         address spirit = 0x16327E3FbDaCA3bcF7E38F5Af2599D2DDc33aE52;
         want.approve(address(gauge), type(uint256).max);
         crv.approve(spooky, type(uint256).max);
-        wftm.approve(spooky, type(uint256).max);
         crv.approve(spirit, type(uint256).max);
-        wftm.approve(spirit, type(uint256).max);
 
         // set our strategy's name
         stratName = _name;
@@ -227,11 +220,12 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
             uint256 _debtPayment
         )
     {
-        // harvest our rewards from the gauge
-        gauge.claim_rewards();
+        // Claim and get a fresh snapshot of the strategy's CRV balance
+        _claimRewards();
+
         uint256 crvBalance = crv.balanceOf(address(this));
-        uint256 wftmBalance = wftm.balanceOf(address(this));
-        // if we claimed any CRV, then sell it
+
+        // Sell CRV if we have any
         if (crvBalance > 0) {
             // keep some of our CRV to increase our boost
             uint256 sendToVoter = crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
@@ -246,10 +240,6 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
             if (crvBalance > 0) {
                 _sellToken(address(crv), crvBalance);
             }
-        }
-        // sell WFTM if we have any
-        if (wftmBalance > 0) {
-            _sellToken(address(wftm), wftmBalance);
         }
 
         uint256 wethBalance = weth.balanceOf(address(this));
@@ -294,32 +284,19 @@ contract StrategyCurveTricrypto is StrategyCurveBase {
         forceHarvestTriggerOnce = false;
     }
 
-    // Sells our CRV, WFTM, or GEIST for our target token
+    // Sells our CRV for our target token
     function _sellToken(address token, uint256 _amount) internal {
-        if (token == address(wftm)) {
-            address[] memory tokenPath = new address[](2);
-            tokenPath[0] = address(wftm);
-            tokenPath[1] = address(targetToken);
-            IUniswapV2Router02(router).swapExactTokensForTokens(
-                _amount,
-                uint256(0),
-                tokenPath,
-                address(this),
-                block.timestamp
-            );
-        } else {
-            address[] memory tokenPath = new address[](3);
-            tokenPath[0] = address(token);
-            tokenPath[1] = address(wftm);
-            tokenPath[2] = address(targetToken);
-            IUniswapV2Router02(router).swapExactTokensForTokens(
-                _amount,
-                uint256(0),
-                tokenPath,
-                address(this),
-                block.timestamp
-            );
-        }
+        address[] memory tokenPath = new address[](3);
+        tokenPath[0] = address(token);
+        tokenPath[1] = address(wftm);
+        tokenPath[2] = address(targetToken);
+        IUniswapV2Router02(router).swapExactTokensForTokens(
+            _amount,
+            uint256(0),
+            tokenPath,
+            address(this),
+            block.timestamp
+        );
     }
 
     /* ========== KEEP3RS ========== */

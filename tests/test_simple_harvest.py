@@ -52,7 +52,8 @@ def test_simple_harvest(
     chain.sleep(1)
     new_assets = vault.totalAssets()
     # confirm we made money, or at least that we have about the same
-    assert new_assets >= old_assets
+    assert new_assets > old_assets
+    
     print("\nAssets after 1 day: ", new_assets / 1e18)
 
     # Display estimated APR
@@ -83,7 +84,7 @@ def test_simple_harvest(
     chain.sleep(1)
     after_usdc_assets = vault.totalAssets()
     # confirm we made money, or at least that we have about the same
-    assert after_usdc_assets >= before_usdc_assets
+    assert after_usdc_assets > before_usdc_assets
 
     # Display estimated APR
     print(
@@ -114,7 +115,7 @@ def test_simple_harvest(
     chain.sleep(1)
     after_usdc_assets = vault.totalAssets()
     # confirm we made money, or at least that we have about the same
-    assert after_usdc_assets >= before_usdc_assets
+    assert after_usdc_assets > before_usdc_assets
 
     # Display estimated APR
     print(
@@ -131,4 +132,4 @@ def test_simple_harvest(
 
     # withdraw and confirm we made money, or at least that we have about the same
     vault.withdraw({"from": whale})
-    assert token.balanceOf(whale) >= startingWhale
+    assert token.balanceOf(whale) > startingWhale
