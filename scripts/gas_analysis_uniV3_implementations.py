@@ -2,25 +2,25 @@
 # The script compares gas cost of uniswap's V3 swap implementations in mainnet and arbitrum.
 # We found out that SwapRouter is significantly more gas-efficient.
 
-from brownie import accounts, config, chain, convert, interface
+from brownie import accounts, chain, convert, interface
 from eth_abi.packed import encode_abi_packed
 
 # arbitrum
-crv_whale = accounts.at(convert.to_address(config["wallets"]["crv_whale"]), True)
+crv_whale = accounts.at("0x4A65e76bE1b4e8dd6eF618277Fa55200e3F8F20a", True)
 # mainnet
 # crv_whale = accounts.at("0x7a16fF8270133F063aAb6C9977183D9e72835428", True)
 
 crv_amount = 10_000 * 10**18
 
 # arbitrum
-crv = interface.ERC20(convert.to_address(config["contracts"]["crv"]))
+crv = interface.ERC20("0x11cDb42B0EB46D95f990BeDD4695A6e3fA034978")
 # mainnet
 # crv = interface.ERC20("0xD533a949740bb3306d119CC777fa900bA034cd52")
 
 assert crv.balanceOf(crv_whale) >= crv_amount * 2  # we'll do the same swap twice
 
-router = interface.ISwapRouter(config["contracts"]["router"])
-routerV2 = interface.ISwapRouterV2(config["contracts"]["routerV2"])
+router = interface.ISwapRouter("0xE592427A0AEce92De3Edee1F18E0157C05861564")
+routerV2 = interface.ISwapRouterV2("0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45")
 
 crv.approve(router, 2**256 - 1, {"from": crv_whale})
 crv.approve(routerV2, 2**256 - 1, {"from": crv_whale})
@@ -31,9 +31,9 @@ path = encode_abi_packed(
     [
         crv.address,
         3000,
-        convert.to_address(config["contracts"]["weth"]),
+        "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # weth
         500,
-        convert.to_address(config["contracts"]["usdt"]),
+        "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",  # usdt
     ],
 ).hex()
 

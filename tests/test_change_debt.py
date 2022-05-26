@@ -10,6 +10,9 @@ def test_change_debt(
     strategy,
     chain,
     amount,
+    crv,
+    gauge,
+    gaugeFactory,
 ):
 
     ## deposit to the vault after approving
@@ -20,7 +23,7 @@ def test_change_debt(
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     # evaluate our current total assets
     old_assets = vault.totalAssets()
@@ -34,7 +37,7 @@ def test_change_debt(
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     assert strategy.estimatedTotalAssets() < startingStrategy
 
@@ -51,7 +54,7 @@ def test_change_debt(
     # evaluate our current total assets
     new_assets = vault.totalAssets()
 
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     # confirm we made money, or at least that we have about the same
     assert new_assets >= old_assets or math.isclose(new_assets, old_assets, abs_tol=5)
@@ -68,4 +71,4 @@ def test_change_debt(
     # rewarded to the protocol
     assert vault.totalSupply() == vault.balanceOf(vault.rewards())
 
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)

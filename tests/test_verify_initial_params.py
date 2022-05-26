@@ -1,9 +1,19 @@
 from brownie import config
 
 
-def test_verify_initial_params(strategy, healthCheck, vault):
+def test_verify_initial_params(
+    strategy,
+    healthCheck,
+    vault,
+    strategist,
+    gov,
+    token,
+    rewards,
+    keeper,
+    usdc,
+    usdt,
+):
 
-    assert strategy.vault() == config["contracts"]["vault"]
     assert strategy.vault() == vault.address
 
     # doHealthCheck() returns a bool that enables/disables calls to the healthcheck contract
@@ -23,23 +33,22 @@ def test_verify_initial_params(strategy, healthCheck, vault):
         strategy.name() == config["strategy"]["name"]
     ), "Strategy name not setup properly"
 
-    # delegatedAssets ais the amount in want that may have been transfered to another
+    # delegatedAssets ais the amount in want that may have transfered to another
     # contract - e.g., a different vault. Management fees are not charged to delegated assets.
     assert strategy.delegatedAssets() == 0, "Delegated Assets are not 0"
 
     # Check roles were assigned as planned
-    assert strategy.strategist() == config["wallets"]["strategist"]
-    assert strategy.rewards() == config["wallets"]["rewards"]
-    assert strategy.keeper() == config["wallets"]["keeper"]
+    assert strategy.strategist() == strategist.address
+    assert strategy.rewards() == rewards.address
+    assert strategy.keeper() == keeper.address
 
     assert vault.governance() in [
-        config["wallets"]["governance"],
-        config["wallets"]["strategist"],
+        gov.address,
+        strategist.address,
     ]
 
-    assert strategy.want() == config["contracts"]["token"]
-    assert strategy.gauge() == config["contracts"]["gauge"]
-    assert strategy.targetTokenAddress() == config["contracts"]["usdc"]
+    assert strategy.want() == token.address
+    assert strategy.targetTokenAddress() == usdc.address
 
     # The maximum number of seconds between harvest calls.
     assert (

@@ -1,4 +1,4 @@
-from brownie import Contract, accounts, config, convert, Wei, network
+from brownie import Contract, accounts, convert, Wei, network
 import click
 
 activeNetwork = network.show_active()
@@ -12,10 +12,12 @@ def main():
     dev = accounts.load(click.prompt("Account", type=click.Choice(accounts.load())))
     click.echo(f"You are using: 'dev' [{dev.address}]")
 
-    registry = Contract(convert.to_address(config["contracts"]["registry"]), owner=dev)
+    registry = Contract(
+        convert.to_address("0x3199437193625DCcD6F9C9e98BDf93582200Eb1f"), owner=dev
+    )
 
     # 2CRV pool in Arbitrum
-    token = Contract(convert.to_address(config["contracts"]["token"]))
+    token = Contract(convert.to_address("0x7f90122BF0700F9E7e1F688fe926940E8839F353"))
 
     name = f"{token.symbol()} yVault"
     symbol = f"yv{token.symbol()}"
@@ -25,8 +27,8 @@ def main():
     args = [
         token.address,
         dev.address,
-        convert.to_address(config["wallets"]["guardian"]),
-        convert.to_address(config["wallets"]["rewards"]),
+        convert.to_address("0x6346282DB8323A54E840c6C772B4399C9c655C0d"),
+        convert.to_address("0x1DEb47dCC9a35AD454Bf7f0fCDb03c09792C08c1"),
         name,
         symbol,
         releaseDelta,
@@ -41,6 +43,10 @@ def main():
     vault = Contract(vaultAddress, owner=dev)
 
     vault.setDepositLimit(Wei("50_000 ether"))
-    vault.setManagement(convert.to_address(config["wallets"]["strategy_ms"]))
+    vault.setManagement(
+        convert.to_address("0x6346282DB8323A54E840c6C772B4399C9c655C0d")
+    )
     vault.setPerformanceFee(2000)
-    vault.setGovernance(convert.to_address(config["wallets"]["governance"]))
+    vault.setGovernance(
+        convert.to_address("0xb6bc033D34733329971B938fEf32faD7e98E56aD")
+    )

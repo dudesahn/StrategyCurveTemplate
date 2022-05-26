@@ -5,19 +5,20 @@ from warnings import warn
 def test_simple_harvest(
     gov,
     token,
-    rewardToken,
+    crv,
     vault,
     whale,
     strategy,
     chain,
     gauge,
+    gaugeFactory,
     amount,
 ):
     print("#######################################################")
     print("Start of test #########################################")
     print("#######################################################\n")
 
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
@@ -51,7 +52,7 @@ def test_simple_harvest(
     print("After first deposit ###################################")
     print("#######################################################\n")
 
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     # harvest, store asset amount
     chain.sleep(1)
@@ -65,7 +66,7 @@ def test_simple_harvest(
     print("After first deposit and harvest #######################")
     print("#######################################################\n")
 
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     assert old_assets > 0
     assert token.balanceOf(strategy) == 0, "Want not deposited into the gauge"
@@ -82,7 +83,7 @@ def test_simple_harvest(
     print(f"Claimable reward right before harvest ################")
     print("#######################################################\n")
 
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     # harvest, store new asset amount
     strategy.harvest({"from": gov})
@@ -91,7 +92,7 @@ def test_simple_harvest(
     print(f"Harvest after {hours} hours ###############################")
     print("#######################################################\n")
 
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     # totalAssets() is in `want` units net of harvest costs incurred by the strategy (uniswap fees,
     # mgmt fees and perf. fees)
@@ -142,7 +143,7 @@ def test_simple_harvest(
     print(f"After {hours} more hours with different target token #######")
     print("#######################################################\n")
 
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     # Display estimated APR
     print(
@@ -174,4 +175,4 @@ def test_simple_harvest(
 
     # The last snapshot shows that it's better to withdraw shortly after a harvest so the
     # user does not leave claimable tokens on the table
-    getSnapshot(vault, strategy)
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)

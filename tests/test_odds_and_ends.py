@@ -53,22 +53,9 @@ def test_odds_and_ends(
 
     # we can try to migrate too, lol
     # deploy our new strategy
-    contractAddress = [
-        vault.address,
-        convert.to_address(config["contracts"]["healthCheck"]),
-        convert.to_address(config["contracts"]["usdt"]),
-        convert.to_address(config["contracts"]["usdc"]),
-        convert.to_address(config["contracts"]["weth"]),
-        convert.to_address(config["contracts"]["crv"]),
-        convert.to_address(config["contracts"]["router"]),
-        convert.to_address(config["contracts"]["gauge"]),
-        convert.to_address(config["contracts"]["gaugeFactory"]),
-        convert.to_address(config["contracts"]["pool"]),
-    ]
-
-    args = [config["strategy"]["name"], contractAddress]
-
-    new_strategy = Strategy.deploy(*args, {"from": strategist})
+    new_strategy = Strategy.deploy(
+        vault.address, config["strategy"]["name"], {"from": strategist}
+    )
 
     total_old = strategy.estimatedTotalAssets()
 
@@ -166,22 +153,9 @@ def test_odds_and_ends_migration(
     chain.sleep(1)
 
     # deploy our new strategy
-    contractAddress = [
-        vault.address,
-        convert.to_address(config["contracts"]["healthCheck"]),
-        convert.to_address(config["contracts"]["usdt"]),
-        convert.to_address(config["contracts"]["usdc"]),
-        convert.to_address(config["contracts"]["weth"]),
-        convert.to_address(config["contracts"]["crv"]),
-        convert.to_address(config["contracts"]["router"]),
-        convert.to_address(config["contracts"]["gauge"]),
-        convert.to_address(config["contracts"]["gaugeFactory"]),
-        convert.to_address(config["contracts"]["pool"]),
-    ]
-
-    args = [config["strategy"]["name"], contractAddress]
-
-    new_strategy = Strategy.deploy(*args, {"from": strategist})
+    new_strategy = Strategy.deploy(
+        vault.address, config["strategy"]["name"], {"from": strategist}
+    )
 
     total_old = strategy.estimatedTotalAssets()
 

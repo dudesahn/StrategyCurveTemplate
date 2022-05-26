@@ -16,7 +16,7 @@ def test_migration(
     healthCheck,
     amount,
     gauge,
-    rewardToken,
+    crv,
 ):
 
     ## deposit to the vault after approving
@@ -27,22 +27,9 @@ def test_migration(
     chain.sleep(1)
 
     # deploy our new strategy
-    contractAddress = [
-        vault.address,
-        convert.to_address(config["contracts"]["healthCheck"]),
-        convert.to_address(config["contracts"]["usdt"]),
-        convert.to_address(config["contracts"]["usdc"]),
-        convert.to_address(config["contracts"]["weth"]),
-        convert.to_address(config["contracts"]["crv"]),
-        convert.to_address(config["contracts"]["router"]),
-        convert.to_address(config["contracts"]["gauge"]),
-        convert.to_address(config["contracts"]["gaugeFactory"]),
-        convert.to_address(config["contracts"]["pool"]),
-    ]
-
-    args = [config["strategy"]["name"], contractAddress]
-
-    new_strategy = Strategy.deploy(*args, {"from": strategist})
+    new_strategy = Strategy.deploy(
+        vault.address, config["strategy"]["name"], {"from": strategist}
+    )
 
     total_old = strategy.estimatedTotalAssets()
 
@@ -70,11 +57,11 @@ def test_migration(
 
     strategy.claimRewards({"from": gov})
 
-    assert rewardToken.balanceOf(strategy) > 0, "No tokens were claimed"
+    assert crv.balanceOf(strategy) > 0, "No tokens were claimed"
 
-    strategy.sweep(rewardToken, {"from": gov})
+    strategy.sweep(crv, {"from": gov})
 
-    assert rewardToken.balanceOf(strategy) == 0, "Tokens were not swept"
+    assert crv.balanceOf(strategy) == 0, "Tokens were not swept"
 
     # assert that our old strategy is empty
     updated_total_old = strategy.estimatedTotalAssets()

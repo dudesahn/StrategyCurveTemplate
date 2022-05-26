@@ -1,21 +1,18 @@
 from brownie import interface, chain
 
 
-def getSnapshot(vault, strategy):
+def getSnapshot(vault, strategy, crv, gauge, gaugeFactory):
     # gets a snapshot of the accounting and key params of the vault and strategy
     print(f"\033[93m{'='*75}\033[0m")
     getVaultSnapshot(vault, strategy)
-    getStrategySnapshot(strategy)
+    getStrategySnapshot(strategy, crv, gauge, gaugeFactory)
     print(f"\033[93m{'='*75}\033[0m")
 
 
-def getStrategySnapshot(strategy):
+def getStrategySnapshot(strategy, crv, gauge, gaugeFactory):
     target = interface.ERC20(strategy.targetTokenAddress())
     want = interface.ERC20(strategy.want())
-    crv = interface.ERC20(strategy.crv())
-    gauge = interface.ICurveGauge(strategy.gauge())
-    gaugeFactory = interface.ICurveGaugeFactory(gauge.factory())
-    gaugeToken = interface.ERC20(strategy.gauge())
+    gaugeToken = interface.ERC20(gauge.address)
     vault = interface.VaultAPI(strategy.vault())
 
     weeksNum = chain.time() // (24 * 60 * 60 * 7)

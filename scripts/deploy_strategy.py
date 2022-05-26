@@ -8,7 +8,7 @@ assert "arb" in activeNetwork, f"Strategy meant to be deployed to Arbitrum only.
 
 def main():
 
-    vaultAddress = convert.to_address(config["contracts"]["vault"])
+    vaultAddress = convert.to_address("0x49448d2B94fb9C4e41a30aD8315D32f46004A34b")
 
     print(f"You are deploying the strategy to the '{activeNetwork}' network")
     dev = accounts.load(click.prompt("Account", type=click.Choice(accounts.load())))
@@ -35,33 +35,22 @@ def main():
 
     publish_source = click.confirm("Verify source on arbiscan?")
 
-    contractAddress = [
-        vaultAddress,
-        convert.to_address(config["contracts"]["healthCheck"]),
-        convert.to_address(config["contracts"]["usdt"]),
-        convert.to_address(config["contracts"]["usdc"]),
-        convert.to_address(config["contracts"]["weth"]),
-        convert.to_address(config["contracts"]["crv"]),
-        convert.to_address(config["contracts"]["router"]),
-        convert.to_address(config["contracts"]["gauge"]),
-        convert.to_address(config["contracts"]["gaugeFactory"]),
-        convert.to_address(config["contracts"]["pool"]),
-    ]
-
-    args = [
-        config["strategy"]["name"],
-        contractAddress
-    ]
-
     strategy = StrategyCurveTwoPool.deploy(
-        *args, {"from": dev}, publish_source=publish_source
+        vault.address,
+        config["strategy"]["name"],
+        {"from": dev},
+        publish_source=publish_source,
     )
 
     # By default, the `strategist`, `rewards` and `keeper` addresses are initialized to `dev`
     # We update `keeper` and `rewards`. Only the strategist or governance can make this change.
-    strategy.setKeeper(convert.to_address(config["wallets"]["keeper"]), {"from": dev})
+    strategy.setKeeper(
+        convert.to_address("0x1DEb47dCC9a35AD454Bf7f0fCDb03c09792C08c1"), {"from": dev}
+    )
 
     # Only the strategist can make this change.
-    strategy.setRewards(convert.to_address(config["wallets"]["rewards"]), {"from": dev})
+    strategy.setRewards(
+        convert.to_address("0x1DEb47dCC9a35AD454Bf7f0fCDb03c09792C08c1"), {"from": dev}
+    )
 
     print(f"Strategy created at {strategy.address}")
