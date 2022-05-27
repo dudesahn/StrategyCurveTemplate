@@ -24,7 +24,7 @@ def test_odds_and_ends(
     ## deposit to the vault after approving. turn off health check before each harvest since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -75,8 +75,8 @@ def test_odds_and_ends(
     new_strat_balance = new_strategy.estimatedTotalAssets()
     assert new_strat_balance >= total_old
 
-    startingVault = vault.totalAssets()
-    print("\nVault starting assets with new strategy: ", startingVault)
+    starting_vault_assets = vault.totalAssets()
+    print("\nVault starting assets with new strategy: ", starting_vault_assets)
 
     # simulate one day of earnings
     chain.sleep(86400)
@@ -85,7 +85,7 @@ def test_odds_and_ends(
     # Test out our migrated strategy, confirm we're making a profit
     new_strategy.harvest({"from": gov})
     vaultAssets_2 = vault.totalAssets()
-    assert vaultAssets_2 >= startingVault
+    assert vaultAssets_2 >= starting_vault_assets
     print("\nAssets after 1 day harvest: ", vaultAssets_2)
 
     # check our oracle
@@ -121,7 +121,7 @@ def test_odds_and_ends_2(
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -161,7 +161,7 @@ def test_odds_and_ends_migration(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -201,8 +201,8 @@ def test_odds_and_ends_migration(
         new_strat_balance, total_old, abs_tol=5
     )
 
-    startingVault = vault.totalAssets()
-    print("\nVault starting assets with new strategy: ", startingVault)
+    starting_vault_assets = vault.totalAssets()
+    print("\nVault starting assets with new strategy: ", starting_vault_assets)
 
     # simulate one day of earnings
     chain.sleep(86400)
@@ -216,8 +216,8 @@ def test_odds_and_ends_migration(
     new_strategy.harvest({"from": gov})
     vaultAssets_2 = vault.totalAssets()
     # confirm we made money, or at least that we have about the same
-    assert vaultAssets_2 >= startingVault or math.isclose(
-        vaultAssets_2, startingVault, abs_tol=5
+    assert vaultAssets_2 >= starting_vault_assets or math.isclose(
+        vaultAssets_2, starting_vault_assets, abs_tol=5
     )
     print("\nAssets after 1 day harvest: ", vaultAssets_2)
 
@@ -237,7 +237,7 @@ def test_odds_and_ends_liquidatePosition(
 ):
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     newWhale = token.balanceOf(whale)
 
@@ -308,7 +308,7 @@ def test_odds_and_ends_rekt(
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -349,7 +349,7 @@ def test_odds_and_ends_liquidate_rekt(
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -408,7 +408,7 @@ def test_odds_and_ends_inactive_strat(
     amount,
 ):
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
@@ -440,7 +440,7 @@ def test_odds_and_ends_weird_amounts(
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     strategy.harvest({"from": gov})
 

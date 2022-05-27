@@ -11,7 +11,7 @@ def isolation(fn_isolation):
 def whale(accounts):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0xe1Bf2277E023184d412E00C13022012cc7b06aba", force=True)
+    whale = accounts.at("0xbEc6E4AC010114e515483060FDA81Cf9088040fF", force=True)
     yield whale
 
 
@@ -38,14 +38,35 @@ def voter():
     yield Contract("0x72a34AbafAB09b15E7191822A679f28E067C4a16")
 
 
+## List of reward tokens since the inception of the curve pool. Not necesarily active currently
 @pytest.fixture(scope="function")
 def crv():
     yield Contract("0x1E4F97b9f9F913c46F1632781732927B9019C68b")
 
 
+@pytest.fixture(scope="function")
+def geist():
+    yield Contract("0xd8321AA83Fb0a4ECd6348D4577431310A6E0814d")
+
+
+@pytest.fixture(scope="function")
+def wftm():
+    yield Contract("0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83")
+
+
+# end of list of reward tokens
+
+
 @pytest.fixture(scope="module")
 def other_vault_strategy():
     yield Contract("0xfF8bb7261E4D51678cB403092Ae219bbEC52aa51")
+
+
+# only applicable if you are migrating an existing strategy (i.e., you are not
+# deploying a brand new one). This strat is using an old version of a curve gauge
+@pytest.fixture(scope="module")
+def strategy_to_migrate_from():
+    yield Contract("0x7ff6fe5bDa1b26fa46880dF8AF844326DAd50d13")
 
 
 @pytest.fixture(scope="module")
@@ -77,7 +98,7 @@ def zero_address():
 @pytest.fixture(scope="module")
 def gauge():
     # this should be the address of the convex deposit token
-    gauge = "0xd4F94D0aaa640BBb72b5EEc2D85F6D114D81a88E"
+    gauge = "0xF7b9c402c4D6c2eDbA04a7a515b53D11B1E9b2cc"
     yield Contract(gauge)
 
 
@@ -139,17 +160,17 @@ def vault(pm, gov, rewards, guardian, management, token, chain):
     Vault = pm(config["dependencies"][0]).Vault
     vault = guardian.deploy(Vault)
     vault.initialize(token, gov, rewards, "", "", guardian)
-    vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
+    vault.setDepositLimit(2**256 - 1, {"from": gov})
     vault.setManagement(management, {"from": gov})
     chain.sleep(1)
     yield vault
 
 
 # use this if your vault is already deployed
-# @pytest.fixture(scope="function")
-# def vault(pm, gov, rewards, guardian, management, token, chain):
-#     vault = Contract("0x497590d2d57f05cf8B42A36062fA53eBAe283498")
-#     yield vault
+@pytest.fixture(scope="function")
+def vaultDeployed():
+    vaultDeployed = Contract("0xF137D22d7B23eeB1950B3e19d1f578c053ed9715")
+    yield vaultDeployed
 
 
 # replace the first value with the name of your strategy
@@ -179,7 +200,7 @@ def strategy(
     # set our management fee to zero so it doesn't mess with our profit checking
     vault.setManagementFee(0, {"from": gov})
     # add our new strategy
-    vault.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+    vault.addStrategy(strategy, 10_000, 0, 2**256 - 1, 1_000, {"from": gov})
     strategy.setHealthCheck(healthCheck, {"from": gov})
     strategy.setDoHealthCheck(True, {"from": gov})
     chain.sleep(1)
