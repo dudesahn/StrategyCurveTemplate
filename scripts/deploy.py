@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from brownie import Strategy, accounts, config, network, project, web3
+from brownie import StrategyCurveGeist, accounts, config, network, project, web3
 from eth_utils import is_checksum_address
 import click
 
@@ -55,4 +55,6 @@ def main():
     if input("Deploy Strategy? y/[N]: ").lower() != "y":
         return
 
-    strategy = Strategy.deploy(vault, {"from": dev}, publish_source=publish_source)
+    strategy = StrategyCurveGeist.deploy(
+        vault, "StrategyCurveGeist", {"from": dev}, publish_source=publish_source
+    )

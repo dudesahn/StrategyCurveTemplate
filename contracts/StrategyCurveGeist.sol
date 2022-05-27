@@ -9,32 +9,9 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 
-import "./interfaces/curve.sol";
-import "./interfaces/yearn.sol";
+import {IGauge, IGaugeFactory, ICurveFi} from "./interfaces/curve.sol";
 import {IUniswapV2Router02} from "./interfaces/uniswap.sol";
-import {
-    BaseStrategy,
-    StrategyParams
-} from "@yearnvaults/contracts/BaseStrategy.sol";
-
-interface IBaseFee {
-    function isCurrentBaseFeeAcceptable() external view returns (bool);
-}
-
-interface IUniV3 {
-    struct ExactInputParams {
-        bytes path;
-        address recipient;
-        uint256 deadline;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-    }
-
-    function exactInput(ExactInputParams calldata params)
-        external
-        payable
-        returns (uint256 amountOut);
-}
+import {BaseStrategy, StrategyParams} from "@yearnvaults/contracts/BaseStrategy.sol";
 
 abstract contract StrategyCurveBase is BaseStrategy {
     using SafeERC20 for IERC20;
@@ -46,7 +23,10 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     // Curve stuff
     IGauge public constant gauge =
-        IGauge(0xd4F94D0aaa640BBb72b5EEc2D85F6D114D81a88E); // Curve gauge contract, most are tokenized, held by strategy
+        IGauge(0xF7b9c402c4D6c2eDbA04a7a515b53D11B1E9b2cc); // Curve gauge contract, most are tokenized, held by strategy
+
+    IGaugeFactory public constant gaugeFactory =
+        IGaugeFactory(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
 
     // keepCRV stuff
     uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
@@ -130,7 +110,23 @@ abstract contract StrategyCurveBase is BaseStrategy {
         return balanceOfWant();
     }
 
+    function _claimRewards() internal {
+        // Claims any pending CRV
+        //
+        // Mints claimable CRV from the factory gauge. Reward tokens are sent to `msg.sender`
+        gaugeFactory.mint(address(gauge));
+
+        // harvest third-party rewards from the gauge, if any
+        gauge.claim_rewards();
+    }
+
+    function claimRewards() external onlyVaultManagers {
+        _claimRewards();
+    }
+
     function prepareMigration(address _newStrategy) internal override {
+        // Withdraw LP tokens from the gauge. The transfer to the new strategy is done
+        // by migrate() in BaseStrategy.sol
         uint256 _stakedBal = stakedBalance();
         if (_stakedBal > 0) {
             gauge.withdraw(_stakedBal);
@@ -215,8 +211,10 @@ contract StrategyCurveGeist is StrategyCurveBase {
         usdc.approve(address(curve), type(uint256).max);
         fusdt.safeApprove(address(curve), type(uint256).max);
 
-        // start off with fusdt
-        targetToken = address(fusdt);
+        //'targetToken' is the token with the least impact on the curve pool at the time of deposit
+        // or the one with the biggest bonus. 'targetToken' is updated by yearn when granted by
+        // market conditions. We start off with usdc.
+        targetToken = address(usdc);
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -231,12 +229,14 @@ contract StrategyCurveGeist is StrategyCurveBase {
             uint256 _debtPayment
         )
     {
-        // harvest our rewards from the gauge
-        gauge.claim_rewards();
+        // Claim and get a fresh snapshot of the strategy's CRV and GEIST balance
+        _claimRewards();
+
         uint256 crvBalance = crv.balanceOf(address(this));
         uint256 wftmBalance = wftm.balanceOf(address(this));
         uint256 geistBalance = geist.balanceOf(address(this));
-        // if we claimed any CRV, then sell it
+
+        // Sell CRV if we have any
         if (crvBalance > 0) {
             // keep some of our CRV to increase our boost
             uint256 sendToVoter = crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
@@ -257,7 +257,7 @@ contract StrategyCurveGeist is StrategyCurveBase {
             _sellToken(address(wftm), wftmBalance);
         }
 
-        // sell the rest of our CRV
+        // Sell GEIST if we have any
         if (geistBalance > 0) {
             _sellToken(address(geist), geistBalance);
         }
@@ -374,7 +374,7 @@ contract StrategyCurveGeist is StrategyCurveBase {
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
     // Set optimal token to sell harvested funds for depositing to Curve.
-    // Default is fUSDT, but can be set to USDC or DAI as needed by strategist or governance.
+    // Default is USDC, but can be set to fUSDT or DAI as needed by strategist or governance.
     function setOptimal(uint256 _optimal) external onlyAuthorized {
         if (_optimal == 0) {
             targetToken = address(dai);
