@@ -1,5 +1,4 @@
 from scripts.utils import getSnapshot
-from warnings import warn
 
 
 def test_simple_harvest(
@@ -11,6 +10,7 @@ def test_simple_harvest(
     strategy,
     chain,
     gauge,
+    voter,
     gaugeFactory,
     amount,
 ):
@@ -42,6 +42,7 @@ def test_simple_harvest(
     strategy.setTargetToken(0, {"from": gov})
 
     # this is part of our check into the staking contract balance
+    keptCRVbeforeHarvest = crv.balanceOf(voter)
     stakingBeforeHarvest = gauge.balanceOf(strategy)
 
     assert (
@@ -87,6 +88,29 @@ def test_simple_harvest(
 
     # harvest, store new asset amount
     strategy.harvest({"from": gov})
+
+    keptCRVafterHarvest = crv.balanceOf(voter)
+
+    if strategy.keepCRV() == 0:
+        assert keptCRVafterHarvest == keptCRVbeforeHarvest
+    else:
+        assert keptCRVafterHarvest > keptCRVbeforeHarvest
+
+    # Harvest again but this time with keepCRV at 10%
+    chain.undo()
+
+    strategy.setKeepCRV(1000, {"from": gov})  ## 10% is 1000 basis points
+
+    strategy.harvest({"from": gov})
+
+    keptCRVafterHarvestKeepCRV = crv.balanceOf(voter)
+
+    assert keptCRVafterHarvestKeepCRV > keptCRVafterHarvest
+
+    if strategy.keepCRV() == 0:
+        assert keptCRVafterHarvestKeepCRV == keptCRVbeforeHarvest
+    else:
+        assert keptCRVafterHarvestKeepCRV > keptCRVbeforeHarvest
 
     print("#######################################################")
     print(f"Harvest after {hours} hours ###############################")

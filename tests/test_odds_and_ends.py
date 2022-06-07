@@ -29,7 +29,7 @@ def test_odds_and_ends(
 
     # send away all funds, will need to alter this based on strategy
     to_send = gauge.balanceOf(strategy)
-    print("Gauge Balance of Vault", to_send)
+    print("Gauge Balance of Strategy", to_send)
     gauge.transfer(gov, to_send, {"from": strategy})
     assert strategy.estimatedTotalAssets() == 0
     vault.approve(strategist_ms, 1e25, {"from": whale})
@@ -120,7 +120,7 @@ def test_odds_and_ends_2(
 
     # send away all funds, will need to alter this based on strategy
     to_send = gauge.balanceOf(strategy)
-    print("Gauge Balance of Vault", to_send)
+    print("Gauge Balance of Strategy", to_send)
     gauge.transfer(gov, to_send, {"from": strategy})
     assert strategy.estimatedTotalAssets() == 0
     strategy.setEmergencyExit({"from": gov})
@@ -292,7 +292,7 @@ def test_odds_and_ends_rekt(
 
     # send away all funds, will need to alter this based on strategy
     to_send = gauge.balanceOf(strategy)
-    print("Gauge Balance of Vault", to_send)
+    print("Gauge Balance of Strategy", to_send)
     gauge.transfer(gov, to_send, {"from": strategy})
     assert strategy.estimatedTotalAssets() == 0
     assert vault.strategies(strategy)[2] == 10000
@@ -329,7 +329,7 @@ def test_odds_and_ends_liquidate_rekt(
 
     # send away all funds, will need to alter this based on strategy
     to_send = gauge.balanceOf(strategy)
-    print("Gauge Balance of Vault", to_send)
+    print("Gauge Balance of Strategy", to_send)
     gauge.transfer(gov, to_send, {"from": strategy})
     assert strategy.estimatedTotalAssets() == 0
 

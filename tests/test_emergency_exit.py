@@ -104,7 +104,7 @@ def test_emergency_exit_with_no_gain_or_loss(
 
     # send away all funds, will need to alter this based on strategy
     to_send = gauge.balanceOf(strategy)
-    print("Gauge Balance of Vault", to_send)
+    print("Gauge Balance of Strategy", to_send)
     gauge.transfer(gov, to_send, {"from": strategy})
     assert strategy.estimatedTotalAssets() == 0
 

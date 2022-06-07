@@ -33,6 +33,11 @@ abstract contract StrategyCurveBase is BaseStrategy {
     IERC20 internal constant crv =
         IERC20(0x11cDb42B0EB46D95f990BeDD4695A6e3fA034978);
 
+    // keepCRV
+    uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
+    uint256 public constant feeDenominator = 10_000; // this means all of our fee values are in bips
+    address public constant voter = 0x6346282DB8323A54E840c6C772B4399C9c655C0d; // Strategists multi-sig
+
     // Uniswap V3 router
     ISwapRouter internal constant router =
         ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
@@ -165,6 +170,12 @@ abstract contract StrategyCurveBase is BaseStrategy {
         forceHarvestTriggerOnce = _forceHarvestTriggerOnce;
     }
 
+    // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
+    function setKeepCRV(uint256 _keepCRV) external onlyAuthorized {
+        require(_keepCRV <= 10_000); // dev: cannot be over 100%
+        keepCRV = _keepCRV;
+    }
+
     /* ========== KEEP3RS ========== */
 
     /// @param callCostInWei Cost of the contract call to harvest(). Used to determine if the profit (if any) is
@@ -267,6 +278,16 @@ contract StrategyCurveTwoPool is StrategyCurveBase {
 
         // Sell CRV (if we have any) for our `targetToken` (USDC or USDT)
         if (crvBalance > 0) {
+            if (keepCRV > 0) {
+                // keep some of our CRV to increase our boost
+                uint256 sendToVoter = crvBalance.mul(keepCRV).div(
+                    feeDenominator
+                );
+                crv.safeTransfer(voter, sendToVoter);
+                crvBalance = crvBalance.sub(sendToVoter);
+            }
+
+            // sell the rest of our CRV
             _sell(crvBalance);
         }
 

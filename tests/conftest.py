@@ -158,13 +158,19 @@ def strategist_ms(accounts):
 
 @pytest.fixture(scope="module")
 def keeper(accounts):
-    keeper = accounts.at("0x1DEb47dCC9a35AD454Bf7f0fCDb03c09792C08c1", force=True)
+    keeper = accounts.at("0x2757AE02F65dB7Ce8CF2b2261c58f07a0170e58e", force=True)
     yield keeper
+
+
+# Set voter to the strategists multi-sig
+@pytest.fixture(scope="function")
+def voter():
+    yield Contract("0x6346282DB8323A54E840c6C772B4399C9c655C0d")
 
 
 @pytest.fixture(scope="module")
 def rewards(accounts):
-    rewards = accounts.at("0x1DEb47dCC9a35AD454Bf7f0fCDb03c09792C08c1", force=True)
+    rewards = accounts.at("0x6346282DB8323A54E840c6C772B4399C9c655C0d", force=True)
     yield rewards
 
 
@@ -245,13 +251,6 @@ def strategy(
         vault.acceptGovernance({"from": gov})
 
     vault.addStrategy(strategy, 10_000, 0, 2**256 - 1, 0, {"from": gov})
-
-    # By default, the `strategist`, `rewards` and `keeper` addresses are initialized to `dev`
-    # We update `keeper` and `rewards`. Only the strategist or governance can make this change.
-    strategy.setKeeper(keeper.address, {"from": strategist})
-
-    # Only the strategist can make this change.
-    strategy.setRewards(rewards.address, {"from": strategist})
 
     yield strategy
 

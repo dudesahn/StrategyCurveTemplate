@@ -39,8 +39,8 @@ def test_verify_initial_params(
 
     # Check roles were assigned as planned
     assert strategy.strategist() == strategist.address
-    assert strategy.rewards() == rewards.address
-    assert strategy.keeper() == keeper.address
+    assert strategy.rewards() == strategist.address
+    assert strategy.keeper() == strategist.address
 
     assert vault.governance() in [
         gov.address,
