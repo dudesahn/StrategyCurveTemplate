@@ -218,9 +218,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         view
         override
         returns (uint256)
-    {
-        return _ethAmount;
-    }
+    {}
 }
 
 contract StrategyCurveTwoPool is StrategyCurveBase {
