@@ -1,132 +1,202 @@
-import brownie
-from brownie import Contract
-from brownie import config
-import math
+from scripts.utils import getSnapshot
 
 
 def test_simple_harvest(
     gov,
     token,
+    crv,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
     gauge,
     voter,
+    gaugeFactory,
     amount,
 ):
+    print("#######################################################")
+    print("Start of test #########################################")
+    print("#######################################################\n")
+
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
+
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
-    newWhale = token.balanceOf(whale)
+
+    # yVault shares are minted 1:1 with the first deposit
+    assert vault.balanceOf(whale) == amount, "Shares were not minted 1:1"
+
+    # The vault should now hold the deposit token
+    assert token.balanceOf(vault) == amount, "The vault is not holding `token`"
+
+    # The whale should now have a lower balance of token by `amount`
+    assert (
+        token.balanceOf(whale) == startingWhale - amount
+    ), "Balance did not decrease as expected"
+
+    # Note that up to this point, the strategy assets/liabilities have not changed.
+
+    # change our optimal deposit asset
+    strategy.setTargetToken(0, {"from": gov})
 
     # this is part of our check into the staking contract balance
-    stakingBeforeHarvest = gauge.balanceOf(voter)
+    keptCRVbeforeHarvest = crv.balanceOf(voter)
+    stakingBeforeHarvest = gauge.balanceOf(strategy)
+
+    assert (
+        stakingBeforeHarvest == 0
+    ), "The amount of gauge tokens should have been zero as nothing has been deposited into the strategy yet"
+
+    print("#######################################################")
+    print("After first deposit ###################################")
+    print("#######################################################\n")
+
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     # harvest, store asset amount
     chain.sleep(1)
     strategy.harvest({"from": gov})
-    chain.sleep(1)
+
+    # totalAssets() is in `want` units net of harvest costs (uniswap fees, mgmt fees and perf. fees)
+    # Beause there hasn't been any gains yet, all these fees will be zero
     old_assets = vault.totalAssets()
+
+    print("#######################################################")
+    print("After first deposit and harvest #######################")
+    print("#######################################################\n")
+
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
+
     assert old_assets > 0
-    assert token.balanceOf(strategy) == 0
+    assert token.balanceOf(strategy) == 0, "Want not deposited into the gauge"
     assert strategy.estimatedTotalAssets() > 0
-    print("\nStarting Assets: ", old_assets / 1e18)
 
-    # try and include custom logic here to check that funds are in the staking contract (if needed)
-    assert gauge.balanceOf(voter) > stakingBeforeHarvest
+    assert gauge.balanceOf(strategy) > stakingBeforeHarvest
 
-    # simulate 1 day of earnings
-    chain.sleep(86400)
+    # simulate 'x' hours of earnings because more CRV need to be sent over
+    hours = 8
+    chain.sleep(60 * 60 * hours)
     chain.mine(1)
 
+    print("#######################################################")
+    print(f"Claimable reward right before harvest ################")
+    print("#######################################################\n")
+
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
+
     # harvest, store new asset amount
-    chain.sleep(1)
     strategy.harvest({"from": gov})
-    chain.sleep(1)
+
+    keptCRVafterHarvest = crv.balanceOf(voter)
+
+    if strategy.keepCRV() == 0:
+        assert keptCRVafterHarvest == keptCRVbeforeHarvest
+    else:
+        assert keptCRVafterHarvest > keptCRVbeforeHarvest
+
+    # Harvest again but this time with keepCRV at 10%
+    chain.undo()
+
+    strategy.setKeepCRV(1000, {"from": gov})  ## 10% is 1000 basis points
+
+    strategy.harvest({"from": gov})
+
+    keptCRVafterHarvestKeepCRV = crv.balanceOf(voter)
+
+    assert keptCRVafterHarvestKeepCRV > keptCRVafterHarvest
+
+    if strategy.keepCRV() == 0:
+        assert keptCRVafterHarvestKeepCRV == keptCRVbeforeHarvest
+    else:
+        assert keptCRVafterHarvestKeepCRV > keptCRVbeforeHarvest
+
+    print("#######################################################")
+    print(f"Harvest after {hours} hours ###############################")
+    print("#######################################################\n")
+
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
+
+    # totalAssets() is in `want` units net of harvest costs incurred by the strategy (uniswap fees,
+    # mgmt fees and perf. fees)
+    # _freeFunds() is [totalAssets() - lockedProfit()]
+    # lockedProfit() is the amount of profits that have been time-locked.
+    # pricePerShare() = [freeFunds() / totalSupply()] * 10^18
+
     new_assets = vault.totalAssets()
-    # confirm we made money, or at least that we have about the same
-    assert new_assets >= old_assets
-    print("\nAssets after 1 day: ", new_assets / 1e18)
+
+    # confirm we made money
+    assert new_assets > old_assets
+
+    # Note that new vault shares are issued to cover fees. This reduces
+    # overall share price by the combined fee (perf + mgmt)
 
     # Display estimated APR
     print(
-        "\nEstimated DAI APR: ",
+        "#######################################################\n",
+        "Estimated 2CRV APR: ",
         "{:.2%}".format(
-            ((new_assets - old_assets) * (365)) / (strategy.estimatedTotalAssets())
+            ((new_assets - old_assets) * (365.25 * (24 / hours)))
+            / (strategy.estimatedTotalAssets())
         ),
+        "\n#######################################################\n",
     )
 
     # change our optimal deposit asset
-    strategy.setOptimal(1, {"from": gov})
+    # selling into USDC is ...
+    strategy.setTargetToken(1, {"from": gov})
 
-    # store asset amount
-    before_usdc_assets = vault.totalAssets()
     assert token.balanceOf(strategy) == 0
+    assert gauge.balanceOf(strategy) > 0
 
-    # try and include custom logic here to check that funds are in the staking contract (if needed)
-    assert gauge.balanceOf(voter) > 0
-
-    # simulate 1 day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
+    # simulate 'x'' hours of earnings because more CRV need to be sent over
+    hours = 8
+    chain.sleep(60 * 60 * hours)
+    chain.mine(1)  # needed to accrue CRV for the time elapsed
 
     # harvest, store new asset amount
-    chain.sleep(1)
     strategy.harvest({"from": gov})
-    chain.sleep(1)
-    after_usdc_assets = vault.totalAssets()
+
+    after_harvest_assets = vault.totalAssets()
+
     # confirm we made money, or at least that we have about the same
-    assert after_usdc_assets >= before_usdc_assets
+    assert after_harvest_assets > new_assets
+
+    print("#######################################################")
+    print(f"After {hours} more hours with different target token #######")
+    print("#######################################################\n")
+
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)
 
     # Display estimated APR
     print(
-        "\nEstimated USDC APR: ",
+        "#######################################################\n",
+        "Estimated 2CRV APR: ",
         "{:.2%}".format(
-            ((after_usdc_assets - before_usdc_assets) * (365))
+            ((after_harvest_assets - new_assets) * (365.25 * (24 / hours)))
             / (strategy.estimatedTotalAssets())
         ),
+        "\n#######################################################\n",
     )
 
-    # change our optimal deposit asset
-    strategy.setOptimal(2, {"from": gov})
+    # simulate 'x'' hours of earnings because more CRV need to be sent over
+    hours = 8
+    chain.sleep(60 * 60 * hours)
+    chain.mine(1)  # needed to accrue CRV for the time elapsed
 
-    # store asset amount
-    before_usdt_assets = vault.totalAssets()
-    assert token.balanceOf(strategy) == 0
-    assert strategy.estimatedTotalAssets() > 0
-
-    # try and include custom logic here to check that funds are in the staking contract (if needed)
-    assert gauge.balanceOf(voter) > 0
-
-    # simulate 1 day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-
-    # harvest, store new asset amount
-    chain.sleep(1)
-    strategy.harvest({"from": gov})
-    chain.sleep(1)
-    after_usdt_assets = vault.totalAssets()
-    # confirm we made money, or at least that we have about the same
-    assert after_usdt_assets >= before_usdt_assets
-
-    # Display estimated APR
-    print(
-        "\nEstimated USDT APR: ",
-        "{:.2%}".format(
-            ((after_usdt_assets - before_usdt_assets) * (365))
-            / (strategy.estimatedTotalAssets())
-        ),
-    )
-
-    # simulate a day of waiting for share price to bump back up
-    chain.sleep(86400)
-    chain.mine(1)
-
-    # withdraw and confirm we made money, or at least that we have about the same
+    # withdraw and confirm we made money
     vault.withdraw({"from": whale})
-    assert token.balanceOf(whale) >= startingWhale
+    assert token.balanceOf(whale) > startingWhale
+
+    # Check that once everyone is out that the outstading shares are equal to those
+    # rewarded to the protocol
+    assert vault.totalSupply() == vault.balanceOf(vault.rewards())
+
+    print("#######################################################")
+    print(f"After {hours} more hours, the whale withdraws ###############")
+    print("#######################################################\n")
+
+    # The last snapshot shows that it's better to withdraw shortly after a harvest so the
+    # user does not leave claimable tokens on the table
+    getSnapshot(vault, strategy, crv, gauge, gaugeFactory)

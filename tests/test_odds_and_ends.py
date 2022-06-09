@@ -1,7 +1,9 @@
-import brownie
-from brownie import Contract
-from brownie import config
 import math
+from brownie import config, convert
+import brownie
+
+Strategy = config["strategy"]["name"]
+Strategy = getattr(__import__("brownie"), Strategy)
 
 
 def test_odds_and_ends(
@@ -13,36 +15,33 @@ def test_odds_and_ends(
     strategy,
     chain,
     strategist_ms,
-    voter,
     gauge,
-    StrategyCurve3CrvRewardsClonable,
     amount,
-    pool,
-    strategy_name,
-    has_rewards,
-    rewards_token,
 ):
 
     ## deposit to the vault after approving. turn off health check before each harvest since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
-    startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # send away all funds, will need to alter this based on strategy
-    to_send = gauge.balanceOf(voter)
-    print("Gauge Balance of Vault", to_send)
-    gauge.transfer(gov, to_send, {"from": voter})
+    to_send = gauge.balanceOf(strategy)
+    print("Gauge Balance of Strategy", to_send)
+    gauge.transfer(gov, to_send, {"from": strategy})
     assert strategy.estimatedTotalAssets() == 0
     vault.approve(strategist_ms, 1e25, {"from": whale})
 
+    chain.sleep(86400 * 4)  # fast forward so our min delay is passed
+    chain.mine(1)
+
     # we want to check when we have a loss
-    tx = strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be true.", tx)
-    assert tx == True
+    # comment this out since we no longer use harvestTrigger from baseStrategy
+    # tx = strategy.harvestTrigger(0, {"from": gov})
+    # print("\nShould we harvest? Should be true.", tx)
+    # assert tx == True
 
     chain.sleep(1)
     strategy.setDoHealthCheck(False, {"from": gov})
@@ -54,15 +53,10 @@ def test_odds_and_ends(
 
     # we can try to migrate too, lol
     # deploy our new strategy
-    new_strategy = strategist.deploy(
-        StrategyCurve3CrvRewardsClonable,
-        vault,
-        pool,
-        gauge,
-        has_rewards,
-        rewards_token,
-        strategy_name,
+    new_strategy = Strategy.deploy(
+        vault.address, config["strategy"]["name"], {"from": strategist}
     )
+
     total_old = strategy.estimatedTotalAssets()
 
     # migrate our old strategy
@@ -77,8 +71,8 @@ def test_odds_and_ends(
     new_strat_balance = new_strategy.estimatedTotalAssets()
     assert new_strat_balance >= total_old
 
-    startingVault = vault.totalAssets()
-    print("\nVault starting assets with new strategy: ", startingVault)
+    starting_vault_assets = vault.totalAssets()
+    print("\nVault starting assets with new strategy: ", starting_vault_assets)
 
     # simulate one day of earnings
     chain.sleep(86400)
@@ -87,13 +81,12 @@ def test_odds_and_ends(
     # Test out our migrated strategy, confirm we're making a profit
     new_strategy.harvest({"from": gov})
     vaultAssets_2 = vault.totalAssets()
-    assert vaultAssets_2 >= startingVault
+    assert vaultAssets_2 >= starting_vault_assets
     print("\nAssets after 1 day harvest: ", vaultAssets_2)
 
     # check our oracle
     one_eth_in_want = strategy.ethToWant(1e18)
     print("This is how much want one ETH buys:", one_eth_in_want)
-    zero_eth_in_want = strategy.ethToWant(0)
 
     # check our views
     strategy.apiVersion()
@@ -110,29 +103,25 @@ def test_odds_and_ends_2(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
-    voter,
     gauge,
     amount,
 ):
 
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
-    startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # send away all funds, will need to alter this based on strategy
-    to_send = gauge.balanceOf(voter)
-    print("Gauge Balance of Vault", to_send)
-    gauge.transfer(gov, to_send, {"from": voter})
+    to_send = gauge.balanceOf(strategy)
+    print("Gauge Balance of Strategy", to_send)
+    gauge.transfer(gov, to_send, {"from": strategy})
     assert strategy.estimatedTotalAssets() == 0
     strategy.setEmergencyExit({"from": gov})
 
@@ -146,55 +135,41 @@ def test_odds_and_ends_2(
 
 
 def test_odds_and_ends_migration(
-    StrategyCurve3CrvRewardsClonable,
     gov,
     token,
     vault,
-    guardian,
     strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
-    proxy,
     amount,
-    pool,
-    strategy_name,
-    gauge,
-    has_rewards,
-    rewards_token,
 ):
 
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # deploy our new strategy
-    new_strategy = strategist.deploy(
-        StrategyCurve3CrvRewardsClonable,
-        vault,
-        pool,
-        gauge,
-        has_rewards,
-        rewards_token,
-        strategy_name,
+    new_strategy = Strategy.deploy(
+        vault.address, config["strategy"]["name"], {"from": strategist}
     )
+
     total_old = strategy.estimatedTotalAssets()
 
     # can we harvest an unactivated strategy? should be no
-    tx = new_strategy.harvestTrigger(0, {"from": gov})
-    print("\nShould we harvest? Should be False.", tx)
-    assert tx == False
+    # under our new method of using min and maxDelay, this no longer matters or works
+    # tx = new_strategy.harvestTrigger(0, {"from": gov})
+    # print("\nShould we harvest? Should be False.", tx)
+    # assert tx == False
 
     # sleep for a dau
     chain.sleep(86400)
 
     # migrate our old strategy
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
-    proxy.approveStrategy(new_strategy.gauge(), new_strategy, {"from": gov})
 
     # assert that our old strategy is empty
     updated_total_old = strategy.estimatedTotalAssets()
@@ -210,8 +185,8 @@ def test_odds_and_ends_migration(
         new_strat_balance, total_old, abs_tol=5
     )
 
-    startingVault = vault.totalAssets()
-    print("\nVault starting assets with new strategy: ", startingVault)
+    starting_vault_assets = vault.totalAssets()
+    print("\nVault starting assets with new strategy: ", starting_vault_assets)
 
     # simulate one day of earnings
     chain.sleep(86400)
@@ -225,8 +200,8 @@ def test_odds_and_ends_migration(
     new_strategy.harvest({"from": gov})
     vaultAssets_2 = vault.totalAssets()
     # confirm we made money, or at least that we have about the same
-    assert vaultAssets_2 >= startingVault or math.isclose(
-        vaultAssets_2, startingVault, abs_tol=5
+    assert vaultAssets_2 >= starting_vault_assets or math.isclose(
+        vaultAssets_2, starting_vault_assets, abs_tol=5
     )
     print("\nAssets after 1 day harvest: ", vaultAssets_2)
 
@@ -235,23 +210,19 @@ def test_odds_and_ends_liquidatePosition(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
     gauge,
-    voter,
     amount,
 ):
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
-    newWhale = token.balanceOf(whale)
 
     # this is part of our check into the staking contract balance
-    stakingBeforeHarvest = gauge.balanceOf(voter)
+    stakingBeforeHarvest = gauge.balanceOf(strategy)
 
     # harvest, store asset amount
     chain.sleep(1)
@@ -264,7 +235,7 @@ def test_odds_and_ends_liquidatePosition(
     print("\nStarting Assets: ", old_assets / 1e18)
 
     # try and include custom logic here to check that funds are in the staking contract (if needed)
-    assert gauge.balanceOf(voter) > stakingBeforeHarvest
+    assert gauge.balanceOf(strategy) > stakingBeforeHarvest
 
     # simulate one day of earnings
     chain.sleep(86400)
@@ -281,9 +252,9 @@ def test_odds_and_ends_liquidatePosition(
 
     # Display estimated APR
     print(
-        "\nEstimated EURT APR: ",
+        "\nEstimated APR: ",
         "{:.2%}".format(
-            ((new_assets - old_assets) * (365)) / (strategy.estimatedTotalAssets())
+            ((new_assets - old_assets) * (365.25)) / (strategy.estimatedTotalAssets())
         ),
     )
 
@@ -305,28 +276,24 @@ def test_odds_and_ends_rekt(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
-    voter,
     gauge,
     amount,
 ):
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
-    startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # send away all funds, will need to alter this based on strategy
-    to_send = gauge.balanceOf(voter)
-    print("Gauge Balance of Vault", to_send)
-    gauge.transfer(gov, to_send, {"from": voter})
+    to_send = gauge.balanceOf(strategy)
+    print("Gauge Balance of Strategy", to_send)
+    gauge.transfer(gov, to_send, {"from": strategy})
     assert strategy.estimatedTotalAssets() == 0
     assert vault.strategies(strategy)[2] == 10000
     print("Strategy Total Debt, this should be >0:", vault.strategies(strategy)[6])
@@ -334,7 +301,7 @@ def test_odds_and_ends_rekt(
 
     strategy.setDoHealthCheck(False, {"from": gov})
     chain.sleep(1)
-    tx = strategy.harvest({"from": gov})
+    strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # we can also withdraw from an empty vault as well
@@ -346,28 +313,24 @@ def test_odds_and_ends_liquidate_rekt(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
-    voter,
     gauge,
     amount,
 ):
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
-    startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
     # send away all funds, will need to alter this based on strategy
-    to_send = gauge.balanceOf(voter)
-    print("Gauge Balance of Vault", to_send)
-    gauge.transfer(gov, to_send, {"from": voter})
+    to_send = gauge.balanceOf(strategy)
+    print("Gauge Balance of Strategy", to_send)
+    gauge.transfer(gov, to_send, {"from": strategy})
     assert strategy.estimatedTotalAssets() == 0
 
     # we can also withdraw from an empty vault as well, but make sure we're okay with losing 100%
@@ -376,15 +339,10 @@ def test_odds_and_ends_liquidate_rekt(
 
 def test_weird_reverts_and_trigger(
     gov,
-    token,
     vault,
-    strategist,
-    whale,
     strategy,
-    chain,
     strategist_ms,
     other_vault_strategy,
-    amount,
 ):
 
     # only vault can call this
@@ -409,17 +367,13 @@ def test_odds_and_ends_inactive_strat(
     gov,
     token,
     vault,
-    strategist,
     whale,
     strategy,
     chain,
-    strategist_ms,
-    voter,
-    cvxDeposit,
     amount,
 ):
     ## deposit to the vault after approving
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})

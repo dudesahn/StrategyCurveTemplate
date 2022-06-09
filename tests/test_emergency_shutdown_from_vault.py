@@ -1,15 +1,18 @@
-import brownie
-from brownie import Contract
-from brownie import config
 import math
 
-# test passes as of 21-06-26
+
 def test_emergency_shutdown_from_vault(
-    gov, token, vault, whale, strategy, chain, amount,
+    gov,
+    token,
+    vault,
+    whale,
+    strategy,
+    chain,
+    amount,
 ):
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
-    token.approve(vault, 2 ** 256 - 1, {"from": whale})
+    token.approve(vault, 2**256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
