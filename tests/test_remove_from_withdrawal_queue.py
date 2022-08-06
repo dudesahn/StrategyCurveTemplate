@@ -3,7 +3,7 @@ from brownie import Contract
 from brownie import config
 import math
 
-
+# test removing a strategy from the withdrawal queue
 def test_remove_from_withdrawal_queue(
     gov,
     token,
@@ -21,8 +21,9 @@ def test_remove_from_withdrawal_queue(
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    # simulate 1 day of earnings
+    # simulate one day of earnings
     chain.sleep(86400)
+    chain.mine(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
     before = strategy.estimatedTotalAssets()

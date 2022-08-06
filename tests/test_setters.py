@@ -2,7 +2,7 @@ import brownie
 from brownie import Contract
 from brownie import config
 
-
+# test the setters on our strategy
 def test_setters(
     gov,
     strategy,
@@ -15,9 +15,11 @@ def test_setters(
     amount,
     gasOracle,
     strategist_ms,
+    is_convex,
 ):
 
     # test our manual harvest trigger
+    gasOracle.setMaxAcceptableBaseFee(2000 * 1e9, {"from": strategist_ms})
     strategy.setForceHarvestTriggerOnce(True, {"from": gov})
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be true.", tx)
@@ -60,9 +62,14 @@ def test_setters(
     strategy.setMinReportDelay(100, {"from": gov})
     strategy.setProfitFactor(1000, {"from": gov})
     strategy.setRewards(gov, {"from": strategist})
-    strategy.setProxy(proxy, {"from": gov})
-    strategy.setKeepCRV(10, {"from": gov})
-    strategy.setUniFees(3000, 3000, {"from": gov})
+
+    if is_convex:
+        strategy.setKeep(10, 0, gov, {"from": gov})
+        strategy.setClaimRewards(True, {"from": gov})
+        strategy.setHarvestTriggerParams(90000e6, 150000e6, 1e24, False, {"from": gov})
+    else:
+        strategy.setKeepCRV(0, {"from": gov})
+    strategy.setUniFees(3000, {"from": gov})
 
     strategy.setStrategist(strategist, {"from": gov})
     name = strategy.name()
@@ -93,22 +100,30 @@ def test_setters(
         strategy.setMaxReportDelay(1000, {"from": whale})
     with brownie.reverts():
         strategy.setRewards(strategist, {"from": whale})
-    with brownie.reverts():
-        strategy.setKeepCRV(10_001, {"from": gov})
+
+    if is_convex:
+        with brownie.reverts():
+            strategy.setKeep(10_001, 0, gov, {"from": gov})
+        with brownie.reverts():
+            strategy.setKeep(0, 10_001, gov, {"from": gov})
+    else:
+        with brownie.reverts():
+            strategy.setKeepCRV(10_001, {"from": gov})
 
     # try a health check with zero address as health check
     strategy.setHealthCheck(zero, {"from": gov})
     strategy.setDoHealthCheck(True, {"from": gov})
     strategy.harvest({"from": gov})
+    chain.sleep(86400)
 
-    # try a health check with random contract as health check
-    strategy.setHealthCheck(gov, {"from": gov})
-    strategy.setDoHealthCheck(True, {"from": gov})
-    # this is causing the RPC to crash now, weirdly
-    # with brownie.reverts():
-    # strategy.harvest({"from": gov})
 
-    # set emergency exit last
-    strategy.setEmergencyExit({"from": gov})
-    with brownie.reverts():
-        strategy.setEmergencyExit({"from": gov})
+#     # try a health check with random contract as health check
+#     strategy.setHealthCheck(gov, {"from": gov})
+#     strategy.setDoHealthCheck(True, {"from": gov})
+#     with brownie.reverts():
+#         strategy.harvest({"from": gov})
+#
+#     # set emergency exit last
+#     strategy.setEmergencyExit({"from": gov})
+#     with brownie.reverts():
+#         strategy.setEmergencyExit({"from": gov})
