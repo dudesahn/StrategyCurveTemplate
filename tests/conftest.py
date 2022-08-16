@@ -39,18 +39,18 @@ def tests_using_tenderly():
 # use this to set what chain we use. 1 for ETH, 250 for fantom
 chain_used = 1
 
-# put our pool's convex pid here; this is the only thing that should need to change up here **************
-# tested with final version: USDN, RAI (short and long sleep)
+# put our pool's convex pid here
+# final tests: IB, Aave
 @pytest.fixture(scope="session")
 def pid():
-    pid = 13  # 13 USDN, 28 USDP, 55 EURT, RAI 63
+    pid = 24  # IB 29, Aave 24
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 20_000e18  # can do 20k for others, 7k for EURT
+    amount = 40_000e18
     yield amount
 
 
@@ -59,11 +59,9 @@ def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
     whale = accounts.at(
-        "0x9899c2c49f5eF2f37fbA6F9F8E7557E7A945c964", force=True
-    )  # 0x1B5eb1173D2Bf770e50F10410C9a96F7a8eB6e75 for USDP
-    # 0x9899c2c49f5eF2f37fbA6F9F8E7557E7A945c964 for USDN
-    # for 0xc065653dD4fd6fD97E7134b7B6daAb6fC221FD23 EURT
-    # RAI 0x0210B1ed07Df594FD3aAc32832a6E1690554716a, 150k
+        "0x03403154afc09Ce8e44C3B185C82C6aD5f86b9ab",
+        force=True,  # IB 0x2D2421fF1b3b35e1ca8A20eb89Fb79803b304c01 holds >1.9m
+    )  # 0x03403154afc09Ce8e44C3B185C82C6aD5f86b9ab for Aave, holds 80k
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -74,46 +72,43 @@ def whale(accounts, amount, token):
 # use this if your vault is already deployed
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x3B96d491f067912D18563d56858Ba7d6EC67a6fa"
-    # USDN 0x3B96d491f067912D18563d56858Ba7d6EC67a6fa
-    # USDP 0xC4dAf3b5e2A9e93861c3FBDd25f1e943B8D87417
-    # EURT 0xBCBB5b54Fa51e7b7Dc920340043B203447842A6b
-    # RAI 0x2D5D4869381C4Fce34789BC1D38aCCe747E295AE
+    vault_address = "0x39CAF13a104FF567f71fd2A4c68C026FDB6E740B"
+    # Iron Bank 0x27b7b1ad7288079A66d12350c828D3C00A6F07d7
+    # Aave 0x39CAF13a104FF567f71fd2A4c68C026FDB6E740B
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurveUSDN"
+    strategy_name = "StrategyConvexAave"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveOldPoolsClonable):
-    contract_name = StrategyCurveOldPoolsClonable
+def contract_name(StrategyCurveUnderlying3Clonable):
+    contract_name = StrategyCurveUnderlying3Clonable
     yield contract_name
 
 
-# this is the address of our rewards token
+# we need these next two fixtures for deploying our curve strategy, but not for convex. for convex we can pull them programmatically.
+# this is the address of our rewards token, in this case it's a dummy (ALCX) that our whale happens to hold just used to test stuff
 @pytest.fixture(scope="session")
-def rewards_token():
-    yield Contract("0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD")
+def rewards_token():  # OGN 0x8207c1FfC5B6804F6024322CcF34F29c3541Ae26, SPELL 0x090185f2135308BaD17527004364eBcC2D37e5F6
+    yield Contract("0x090185f2135308BaD17527004364eBcC2D37e5F6")
 
 
-# curve deposit pool, for old curve pools set this manually
+# curve deposit pool for old pools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0x094d12e5b541784701FD8d65F11fc0598FBC6332"
-    # USDN 0x094d12e5b541784701FD8d65F11fc0598FBC6332
-    # USDP 0x3c8caee4e09296800f8d29a68fa3837e2dae4940
-    # EURT 0x5D0F47B32fDd343BfA74cE221808e2abE4A53827, not actually the pool but the zap contract for individual token deposits
-    # RAI 0xcB636B81743Bb8a7F1E355DEBb7D33b07009cCCC
+    old_pool = "0xDeBF20617708857ebe4F679508E7b7863a8A8EeE"
+    # IB 0x2dded6Da1BF5DBdF597C45fcFaa3194e53EcfeAF
+    # Aave 0xDeBF20617708857ebe4F679508E7b7863a8A8EeE
     yield old_pool
 
 
-# whether or not a strategy is clonable. if true, don't forget to update what our cloning function is called in test_cloning.py
+# whether or not a strategy is clonable
 @pytest.fixture(scope="session")
 def is_clonable():
     is_clonable = True
@@ -144,14 +139,14 @@ def is_convex():
 # if our curve gauge deposits aren't tokenized (older pools), we can't as easily do some tests and we skip them
 @pytest.fixture(scope="session")
 def gauge_is_not_tokenized():
-    gauge_is_not_tokenized = True
+    gauge_is_not_tokenized = False
     yield gauge_is_not_tokenized
 
 
 # use this to test our strategy in case there are no profits
 @pytest.fixture(scope="session")
 def no_profit():
-    no_profit = False
+    no_profit = True  # Aave has really low yield, basically no profit
     yield no_profit
 
 
@@ -172,7 +167,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 8  # RAI earns very little, so with short sleeps (2 hours) it has zero profit. need ~48 hours to have profits
+    hours_to_sleep = 24
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time

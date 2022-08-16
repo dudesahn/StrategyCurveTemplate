@@ -163,7 +163,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveOldPoolsClonable is StrategyCurveBase {
+contract StrategyCurveUnderlying3Clonable is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -204,7 +204,7 @@ contract StrategyCurveOldPoolsClonable is StrategyCurveBase {
     event Cloned(address indexed clone);
 
     // we use this to clone our original strategy to other vaults
-    function cloneCurve3CrvRewards(
+    function cloneCurveUnderlying(
         address _vault,
         address _strategist,
         address _rewards,
@@ -231,7 +231,7 @@ contract StrategyCurveOldPoolsClonable is StrategyCurveBase {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        StrategyCurveOldPoolsClonable(newStrategy).initialize(
+        StrategyCurveUnderlying3Clonable(newStrategy).initialize(
             _vault,
             _strategist,
             _rewards,
@@ -343,8 +343,9 @@ contract StrategyCurveOldPoolsClonable is StrategyCurveBase {
         // deposit our balance to Curve if we have any
         if (_daiBalance > 0 || _usdcBalance > 0 || _usdtBalance > 0) {
             curve.add_liquidity(
-                [0, _daiBalance, _usdcBalance, _usdtBalance],
-                0
+                [_daiBalance, _usdcBalance, _usdtBalance],
+                0,
+                true
             );
         }
 
