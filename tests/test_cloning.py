@@ -1,5 +1,5 @@
 import brownie
-from brownie import Wei, accounts, Contract, config
+from brownie import Wei, accounts, Contract, config, ZERO_ADDRESS
 import math
 
 # test cloning our strategy, make sure the cloned strategy still works just fine by sending funds to it
@@ -13,25 +13,34 @@ def test_cloning(
     keeper,
     rewards,
     chain,
-    proxy,
-    StrategyCurve3CrvRewardsClonable,
+    contract_name,
     rewardsContract,
     pid,
     amount,
-    gauge,
     pool,
+    gauge,
     strategy_name,
     sleep_time,
     tests_using_tenderly,
     is_slippery,
     no_profit,
     is_convex,
+    vault_address,
+    has_rewards,
+    rewards_token,
+    is_clonable,
+    proxy,
 ):
+
+    # skip this test if we don't clone
+    if not is_clonable:
+        return
+
     # tenderly doesn't work for "with brownie.reverts"
     if tests_using_tenderly:
         if is_convex:
             ## clone our strategy
-            tx = strategy.cloneConvex3CrvRewards(
+            tx = strategy.cloneCurve3CrvRewards(
                 vault,
                 strategist,
                 rewards,
@@ -41,7 +50,7 @@ def test_cloning(
                 strategy_name,
                 {"from": gov},
             )
-            newStrategy = StrategyConvex3CrvRewardsClonable.at(tx.return_value)
+            newStrategy = contract_name.at(tx.return_value)
         else:
             ## clone our strategy
             tx = strategy.cloneCurve3CrvRewards(
@@ -54,7 +63,7 @@ def test_cloning(
                 strategy_name,
                 {"from": gov},
             )
-            newStrategy = StrategyCurve3CrvRewardsClonable.at(tx.return_value)
+            newStrategy = contract_name.at(tx.return_value)
     else:
         if is_convex:
             # Shouldn't be able to call initialize again
@@ -71,7 +80,7 @@ def test_cloning(
                 )
 
             ## clone our strategy
-            tx = strategy.cloneConvex3CrvRewards(
+            tx = strategy.cloneCurve3CrvRewards(
                 vault,
                 strategist,
                 rewards,
@@ -81,7 +90,7 @@ def test_cloning(
                 strategy_name,
                 {"from": gov},
             )
-            newStrategy = StrategyConvex3CrvRewardsClonable.at(tx.return_value)
+            newStrategy = contract_name.at(tx.return_value)
 
             # Shouldn't be able to call initialize again
             with brownie.reverts():
@@ -134,7 +143,7 @@ def test_cloning(
                 strategy_name,
                 {"from": gov},
             )
-            newStrategy = StrategyCurve3CrvRewardsClonable.at(tx.return_value)
+            newStrategy = contract_name.at(tx.return_value)
 
             # Shouldn't be able to call initialize again
             with brownie.reverts():
@@ -171,9 +180,25 @@ def test_cloning(
 
     # attach our new strategy
     vault.addStrategy(newStrategy, currentDebt, 0, 2 ** 256 - 1, 1_000, {"from": gov})
-    assert vault.withdrawalQueue(2) == newStrategy
+
+    if vault_address == ZERO_ADDRESS:
+        assert vault.withdrawalQueue(1) == newStrategy
+    else:
+        if (
+            vault.withdrawalQueue(2) == ZERO_ADDRESS
+        ):  # only has convex, since we just added our clone to position index 1
+            assert vault.withdrawalQueue(1) == newStrategy
+        else:
+            assert vault.withdrawalQueue(2) == newStrategy
     assert vault.strategies(newStrategy)["debtRatio"] == currentDebt
     assert vault.strategies(strategy)["debtRatio"] == 0
+
+    # add rewards token if needed
+    if has_rewards:
+        if is_convex:
+            newStrategy.updateRewards(True, 0, {"from": gov})
+        else:
+            newStrategy.updateRewards(True, rewards_token, {"from": gov})
 
     ## deposit to the vault after approving; this is basically just our simple_harvest test
     before_pps = vault.pricePerShare()

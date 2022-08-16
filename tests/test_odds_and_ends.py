@@ -14,20 +14,21 @@ def test_odds_and_ends(
     chain,
     strategist_ms,
     voter,
-    StrategyCurve3CrvRewardsClonable,
+    gauge,
+    contract_name,
     cvxDeposit,
     rewardsContract,
     pid,
     crv,
-    proxy,
     convexToken,
     amount,
-    gauge,
     pool,
+    proxy,
     strategy_name,
     rewards_token,
     is_convex,
     has_rewards,
+    sleep_time,
 ):
 
     ## deposit to the vault after approving. turn off health check before each harvest since we're doing weird shit
@@ -70,7 +71,7 @@ def test_odds_and_ends(
     # our whale donates 1 wei to the vault so we don't divide by zero (0.3.5 vault errors in vault._reportLoss)
     token.transfer(strategy, 1, {"from": whale})
 
-    chain.sleep(86400)
+    chain.sleep(sleep_time)
     chain.mine(1)
     strategy.setDoHealthCheck(False, {"from": gov})
     strategy.harvest({"from": gov})
@@ -83,7 +84,7 @@ def test_odds_and_ends(
     # deploy our new strategy
     if is_convex:
         new_strategy = strategist.deploy(
-            StrategyConvex3CrvRewardsClonable,
+            contract_name,
             vault,
             pid,
             pool,
@@ -91,7 +92,7 @@ def test_odds_and_ends(
         )
     else:
         new_strategy = strategist.deploy(
-            StrategyCurve3CrvRewardsClonable,
+            contract_name,
             vault,
             gauge,
             pool,
@@ -102,7 +103,8 @@ def test_odds_and_ends(
 
     # migrate our old strategy
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
-    proxy.approveStrategy(strategy.gauge(), new_strategy, {"from": gov})
+    if not is_convex:
+        proxy.approveStrategy(strategy.gauge(), new_strategy, {"from": gov})
 
     # assert that our old strategy is empty
     updated_total_old = strategy.estimatedTotalAssets()
@@ -196,7 +198,7 @@ def test_odds_and_ends_2(
 
 
 def test_odds_and_ends_migration(
-    StrategyCurve3CrvRewardsClonable,
+    contract_name,
     gov,
     token,
     vault,
@@ -207,12 +209,13 @@ def test_odds_and_ends_migration(
     chain,
     strategist_ms,
     proxy,
-    gauge,
     pid,
     amount,
+    gauge,
     pool,
     strategy_name,
     is_convex,
+    sleep_time,
 ):
 
     ## deposit to the vault after approving
@@ -225,7 +228,7 @@ def test_odds_and_ends_migration(
     # deploy our new strategy
     if is_convex:
         new_strategy = strategist.deploy(
-            StrategyConvex3CrvRewardsClonable,
+            contract_name,
             vault,
             pid,
             pool,
@@ -233,7 +236,7 @@ def test_odds_and_ends_migration(
         )
     else:
         new_strategy = strategist.deploy(
-            StrategyCurve3CrvRewardsClonable,
+            contract_name,
             vault,
             gauge,
             pool,
@@ -247,12 +250,13 @@ def test_odds_and_ends_migration(
         print("\nShould we harvest? Should be False.", tx)
         assert tx == False
 
-    # sleep for a dau
-    chain.sleep(86400)
+    # sleep
+    chain.sleep(sleep_time)
 
     # migrate our old strategy
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
-    proxy.approveStrategy(strategy.gauge(), new_strategy, {"from": gov})
+    if not is_convex:
+        proxy.approveStrategy(strategy.gauge(), new_strategy, {"from": gov})
 
     # assert that our old strategy is empty
     updated_total_old = strategy.estimatedTotalAssets()
@@ -388,11 +392,12 @@ def test_odds_and_ends_rekt(
     cvxDeposit,
     rewardsContract,
     crv,
-    gauge,
     convexToken,
     amount,
     is_convex,
+    gauge,
     has_rewards,
+    rewards_token,
 ):
     ## deposit to the vault after approving. turn off health check since we're doing weird shit
     strategy.setDoHealthCheck(False, {"from": gov})
@@ -569,7 +574,7 @@ def test_odds_and_ends_empty_strat(
         print("cvxToken Balance of Strategy", to_send)
         cvxDeposit.transfer(gov, to_send, {"from": strategy})
         assert strategy.estimatedTotalAssets() == 0
-        if not (is_slippery and no_profit):
+        if not no_profit:
             assert strategy.claimableBalance() > 0
     else:
         # send all funds out of the gauge, then send back 1 wei so we can claim rewards
@@ -663,6 +668,7 @@ def test_odds_and_ends_keep_cvx(
     sleep_time,
     convexToken,
     is_convex,
+    no_profit,
 ):
     if not is_convex:
         return
@@ -671,8 +677,8 @@ def test_odds_and_ends_keep_cvx(
     vault.deposit(amount, {"from": whale})
     strategy.harvest({"from": gov})
 
-    # sleep for a week to get some profit
-    chain.sleep(86400 * 7)
+    # sleep to get some profit
+    chain.sleep(sleep_time)
     chain.mine(1)
 
     # take 100% of our CVX to the treasury
@@ -684,10 +690,11 @@ def test_odds_and_ends_keep_cvx(
     treasury_before = convexToken.balanceOf(vault.rewards())
     strategy.harvest({"from": gov})
     treasury_after = convexToken.balanceOf(vault.rewards())
-    assert treasury_after > treasury_before
+    if not no_profit:
+        assert treasury_after > treasury_before
 
-    # sleep for a week to get some profit
-    chain.sleep(86400 * 7)
+    # sleep to get some profit
+    chain.sleep(sleep_time)
     chain.mine(1)
 
     # take 0% of our CVX to the treasury

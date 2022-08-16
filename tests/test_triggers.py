@@ -18,6 +18,7 @@ def test_triggers(
     is_slippery,
     no_profit,
     is_convex,
+    sleep_time,
 ):
 
     # convex inactive strategy (0 DR and 0 assets) shouldn't be touched by keepers
@@ -56,12 +57,12 @@ def test_triggers(
         print("\nShould we harvest? Should be false.", tx)
         assert tx == False
 
-    # simulate a day of earnings
-    chain.sleep(86400)
+    # simulate earnings
+    chain.sleep(sleep_time)
     chain.mine(1)
 
     # set our max delay to 1 day so we trigger true, then set it back to 21 days
-    strategy.setMaxReportDelay(86400)
+    strategy.setMaxReportDelay(sleep_time - 1)
     tx = strategy.harvestTrigger(0, {"from": gov})
     print("\nShould we harvest? Should be True.", tx)
     assert tx == True
@@ -108,7 +109,7 @@ def test_triggers(
         assert tx == False
         strategy.setHarvestTriggerParams(90000e6, 150000e6, 1e24, False, {"from": gov})
     else:  # curve uses minDelay as well
-        strategy.setMinReportDelay(86400)
+        strategy.setMinReportDelay(sleep_time - 1)
         tx = strategy.harvestTrigger(0, {"from": gov})
         print("\nShould we harvest? Should be True.", tx)
         assert tx == True
@@ -116,7 +117,7 @@ def test_triggers(
     # harvest, wait
     chain.sleep(1)
     strategy.harvest({"from": gov})
-    chain.sleep(86400)
+    chain.sleep(sleep_time)
     chain.mine(1)
 
     # harvest should trigger false due to high gas price

@@ -30,8 +30,8 @@ def test_change_debt(
     startingStrategy = strategy.estimatedTotalAssets()
 
     # debtRatio is in BPS (aka, max is 10,000, which represents 100%), and is a fraction of the funds that can be in the strategy
-    currentDebtRatio = vault.strategies(strategy)["debtRatio"]
-    vault.updateStrategyDebtRatio(strategy, currentDebtRatio / 2, {"from": gov})
+    currentDebt = vault.strategies(strategy)["debtRatio"]
+    vault.updateStrategyDebtRatio(strategy, currentDebt / 2, {"from": gov})
     chain.sleep(sleep_time)
     strategy.harvest({"from": gov})
     chain.sleep(1)
@@ -43,7 +43,7 @@ def test_change_debt(
     chain.mine(1)
 
     # set DebtRatio back to 100%
-    vault.updateStrategyDebtRatio(strategy, currentDebtRatio, {"from": gov})
+    vault.updateStrategyDebtRatio(strategy, currentDebt, {"from": gov})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
