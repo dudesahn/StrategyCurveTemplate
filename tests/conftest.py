@@ -1,5 +1,5 @@
 import pytest
-from brownie import config, Wei, Contract, chain, ZERO_ADDRESS
+from brownie import config, Wei, Contract, ZERO_ADDRESS
 import requests
 
 # Snapshots the chain before each test and reverts after test completion.
@@ -14,7 +14,7 @@ use_tenderly = False
 ################################################## TENDERLY DEBUGGING ##################################################
 
 # change autouse to True if we want to use this fork to help debug tests
-@pytest.fixture(scope="module", autouse=use_tenderly)
+@pytest.fixture(scope="session", autouse=use_tenderly)
 def tenderly_fork(web3, chain):
     fork_base_url = "https://simulate.yearn.network/fork"
     payload = {"network_id": str(chain.id)}
@@ -39,18 +39,18 @@ def tests_using_tenderly():
 # use this to set what chain we use. 1 for ETH, 250 for fantom
 chain_used = 1
 
-
-# If testing a Convex strategy, set this equal to your PID
+# put our pool's convex pid here; this is the only thing that should need to change up here **************
+# tested with final version: USDN, RAI (short and long sleep)
 @pytest.fixture(scope="session")
 def pid():
-    pid = 40  # mim 40, FRAX 32
+    pid = 13  # 13 USDN, 28 USDP, 55 EURT, RAI 63
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 35_000e18  # same amount for both
+    amount = 20_000e18  # can do 20k for others, 7k for EURT
     yield amount
 
 
@@ -58,8 +58,12 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    # MIM 0xe896e539e557BC751860a7763C8dD589aF1698Ce, FRAX 0xA86e412109f77c45a3BC1c5870b880492Fb86A14
-    whale = accounts.at("0xe896e539e557BC751860a7763C8dD589aF1698Ce", force=True)
+    whale = accounts.at(
+        "0x9899c2c49f5eF2f37fbA6F9F8E7557E7A945c964", force=True
+    )  # 0x1B5eb1173D2Bf770e50F10410C9a96F7a8eB6e75 for USDP
+    # 0x9899c2c49f5eF2f37fbA6F9F8E7557E7A945c964 for USDN
+    # for 0xc065653dD4fd6fD97E7134b7B6daAb6fC221FD23 EURT
+    # RAI 0x0210B1ed07Df594FD3aAc32832a6E1690554716a, 150k
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -70,37 +74,42 @@ def whale(accounts, amount, token):
 # use this if your vault is already deployed
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x2DfB14E32e2F8156ec15a2c21c3A6c053af52Be8"
-    # MIM 0x2DfB14E32e2F8156ec15a2c21c3A6c053af52Be8
-    # FRAX 0xB4AdA607B9d6b2c9Ee07A275e9616B84AC560139
+    vault_address = "0x3B96d491f067912D18563d56858Ba7d6EC67a6fa"
+    # USDN 0x3B96d491f067912D18563d56858Ba7d6EC67a6fa
+    # USDP 0xC4dAf3b5e2A9e93861c3FBDd25f1e943B8D87417
+    # EURT 0xBCBB5b54Fa51e7b7Dc920340043B203447842A6b
+    # RAI 0x2D5D4869381C4Fce34789BC1D38aCCe747E295AE
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyConvexMIM"
+    strategy_name = "StrategyCurveUSDN"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurve3CrvRewardsClonable):
-    contract_name = StrategyCurve3CrvRewardsClonable
+def contract_name(StrategyCurveOldPoolsClonable):
+    contract_name = StrategyCurveOldPoolsClonable
     yield contract_name
 
 
-# we need these next two fixtures for deploying our curve strategy, but not for convex. for convex we can pull them programmatically.
-# this is the address of our rewards token, in this case it's a dummy (ALCX) that our whale happens to hold just used to test stuff
+# this is the address of our rewards token
 @pytest.fixture(scope="session")
-def rewards_token():  # OGN 0x8207c1FfC5B6804F6024322CcF34F29c3541Ae26, SPELL 0x090185f2135308BaD17527004364eBcC2D37e5F6
-    yield Contract("0x090185f2135308BaD17527004364eBcC2D37e5F6")
+def rewards_token():
+    yield Contract("0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD")
 
 
-# curve deposit pool for old pools, set to ZERO_ADDRESS otherwise
+# curve deposit pool, for old curve pools set this manually
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = ZERO_ADDRESS
+    old_pool = "0x094d12e5b541784701FD8d65F11fc0598FBC6332"
+    # USDN 0x094d12e5b541784701FD8d65F11fc0598FBC6332
+    # USDP 0x3c8caee4e09296800f8d29a68fa3837e2dae4940
+    # EURT 0x5D0F47B32fDd343BfA74cE221808e2abE4A53827, not actually the pool but the zap contract for individual token deposits
+    # RAI 0xcB636B81743Bb8a7F1E355DEBb7D33b07009cCCC
     yield old_pool
 
 
@@ -114,29 +123,29 @@ def is_clonable():
 # whether or not a strategy template can possibly have rewards
 @pytest.fixture(scope="session")
 def rewards_template():
-    rewards_template = True  # all true for this one
+    rewards_template = False
     yield rewards_template
 
 
 # this is whether our pool has extra rewards tokens or not, use this to confirm that our strategy set everything up correctly.
 @pytest.fixture(scope="session")
 def has_rewards():
-    has_rewards = True  # MIM True, FRAX False
+    has_rewards = False
     yield has_rewards
 
 
-# this is whether our strategy is convex or not. false means it's curve.
+# this is whether our strategy is convex or not
 @pytest.fixture(scope="session")
 def is_convex():
     is_convex = False
     yield is_convex
 
 
-# use this when we might lose a few wei on conversions between want and another deposit token
+# if our curve gauge deposits aren't tokenized (older pools), we can't as easily do some tests and we skip them
 @pytest.fixture(scope="session")
-def is_slippery():
-    is_slippery = False
-    yield is_slippery
+def gauge_is_not_tokenized():
+    gauge_is_not_tokenized = True
+    yield gauge_is_not_tokenized
 
 
 # use this to test our strategy in case there are no profits
@@ -146,6 +155,16 @@ def no_profit():
     yield no_profit
 
 
+# use this when we might lose a few wei on conversions between want and another deposit token
+# generally this will always be true if no_profit is true, even for curve/convex since we can lose a wei converting
+@pytest.fixture(scope="session")
+def is_slippery(no_profit):
+    is_slippery = False
+    if no_profit:
+        is_slippery = True
+    yield is_slippery
+
+
 # use this to set the standard amount of time we sleep between harvests.
 # generally 1 day, but can be less if dealing with smaller windows (oracles) or longer if we need to trigger weekly earnings.
 @pytest.fixture(scope="session")
@@ -153,7 +172,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 6
+    hours_to_sleep = 8  # RAI earns very little, so with short sleeps (2 hours) it has zero profit. need ~48 hours to have profits
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time
@@ -378,28 +397,49 @@ if chain_used == 1:  # mainnet
                 90000e6, 150000e6, 1e24, False, {"from": gov}
             )
         else:
-            proxy.approveStrategy(strategy.gauge(), strategy, {"from": gov})
-
             # do slightly different if vault is existing or not
             if vault_address == ZERO_ADDRESS:
                 vault.addStrategy(
                     strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov}
                 )
             else:
-                # remove 50% of funds from our convex strategy
-                other_strat = Contract(vault.withdrawalQueue(1))
-                vault.updateStrategyDebtRatio(other_strat, 5000, {"from": gov})
+                if vault.withdrawalQueue(1) == ZERO_ADDRESS:  # only has convex
+                    other_strat = Contract(vault.withdrawalQueue(0))
+                    vault.updateStrategyDebtRatio(other_strat, 5000, {"from": gov})
+                    vault.addStrategy(
+                        strategy, 5000, 0, 2 ** 256 - 1, 1_000, {"from": gov}
+                    )
 
-                # turn off health check just in case it's a big harvest
-                other_strat.setDoHealthCheck(False, {"from": gov})
-                other_strat.harvest({"from": gov})
-                chain.sleep(1)
-                chain.mine(1)
+                    # reorder so curve first, convex second
+                    queue = [strategy.address, other_strat.address]
+                    for x in range(18):
+                        queue.append(ZERO_ADDRESS)
+                    assert len(queue) == 20
+                    vault.setWithdrawalQueue(queue, {"from": gov})
 
-                # give our curve strategy 50% of our debt and migrate it
-                old_strategy = Contract(vault.withdrawalQueue(0))
-                vault.migrateStrategy(old_strategy, strategy, {"from": gov})
-                vault.updateStrategyDebtRatio(strategy, 5000, {"from": gov})
+                    # turn off health check just in case it's a big harvest
+                    other_strat.setDoHealthCheck(False, {"from": gov})
+                    other_strat.harvest({"from": gov})
+                    chain.sleep(1)
+                    chain.mine(1)
+                else:
+                    other_strat = Contract(vault.withdrawalQueue(1))
+                    # remove 50% of funds from our convex strategy
+                    vault.updateStrategyDebtRatio(other_strat, 5000, {"from": gov})
+
+                    # turn off health check just in case it's a big harvest
+                    other_strat.setDoHealthCheck(False, {"from": gov})
+                    other_strat.harvest({"from": gov})
+                    chain.sleep(1)
+                    chain.mine(1)
+
+                    # give our curve strategy 50% of our debt and migrate it
+                    old_strategy = Contract(vault.withdrawalQueue(0))
+                    vault.migrateStrategy(old_strategy, strategy, {"from": gov})
+                    vault.updateStrategyDebtRatio(strategy, 5000, {"from": gov})
+
+            # approve our new strategy on the proxy
+            proxy.approveStrategy(strategy.gauge(), strategy, {"from": gov})
 
         # make all harvests permissive unless we change the value lower
         gasOracle.setMaxAcceptableBaseFee(2000 * 1e9, {"from": strategist_ms})

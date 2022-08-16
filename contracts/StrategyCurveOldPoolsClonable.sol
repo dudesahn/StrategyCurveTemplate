@@ -49,10 +49,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
     address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
     uint256 internal constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in basis points
 
-    // Swap stuff
-    address internal constant sushiswap =
-        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // we use this to sell our bonus token
-
     IERC20 internal constant crv =
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
     IERC20 internal constant weth =
@@ -167,14 +163,12 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
+contract StrategyCurveOldPoolsClonable is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
     // Curve stuff
-    address public curve; ///@notice This is our curve pool specific to this vault
-    ICurveFi internal constant zapContract =
-        ICurveFi(0xA79828DF1850E8a3A3064576f380D90aECDD3359); // this is used for depositing to all 3Crv metapools
+    ICurveFi public curve; ///@notice This is our curve pool specific to this vault
 
     ICurveFi internal constant crveth =
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
@@ -190,11 +184,6 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
     IERC20 internal constant dai =
         IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     uint24 public uniStableFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
-
-    // rewards token info. we can have more than 1 reward token but this is rare, so we don't include this in the template
-    IERC20 public rewardsToken;
-    bool public hasRewards;
-    address[] internal rewardsPath;
 
     // check for cloning
     bool internal isOriginal = true;
@@ -242,7 +231,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        StrategyCurve3CrvRewardsClonable(newStrategy).initialize(
+        StrategyCurveOldPoolsClonable(newStrategy).initialize(
             _vault,
             _strategist,
             _rewards,
@@ -290,8 +279,8 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         crv.approve(address(crveth), type(uint256).max);
         weth.approve(uniswapv3, type(uint256).max);
 
-        // this is the pool specific to this vault, but we only use it as an address
-        curve = address(_curvePool);
+        // this is the pool specific to this vault
+        curve = ICurveFi(_curvePool);
 
         // need to set our proxy when cloning since it's not a constant
         proxy = ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152);
@@ -303,9 +292,9 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        dai.approve(address(zapContract), type(uint256).max);
-        usdt.safeApprove(address(zapContract), type(uint256).max); // USDT requires safeApprove(), funky token
-        usdc.approve(address(zapContract), type(uint256).max);
+        dai.approve(address(curve), type(uint256).max);
+        usdt.safeApprove(address(curve), type(uint256).max); // USDT requires safeApprove(), funky token
+        usdc.approve(address(curve), type(uint256).max);
 
         // start with usdt
         targetStable = address(usdt);
@@ -343,14 +332,6 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             }
         }
 
-        if (hasRewards) {
-            proxy.claimRewards(gauge, address(rewardsToken));
-            uint256 _rewardsBalance = rewardsToken.balanceOf(address(this));
-            if (_rewardsBalance > 0) {
-                _sellRewards(_rewardsBalance);
-            }
-        }
-
         // do this even if we don't have any CRV, in case we have WETH
         _sell(_crvBalance);
 
@@ -361,8 +342,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
 
         // deposit our balance to Curve if we have any
         if (_daiBalance > 0 || _usdcBalance > 0 || _usdtBalance > 0) {
-            zapContract.add_liquidity(
-                curve,
+            curve.add_liquidity(
                 [0, _daiBalance, _usdcBalance, _usdtBalance],
                 0
             );
@@ -412,7 +392,7 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
         crv.safeTransfer(_newStrategy, crv.balanceOf(address(this)));
     }
 
-    // Sells our harvested CRV into the selected output, then WETH -> stables together with any WETH from rewards on UniV3
+    // Sells our harvested CRV into the selected output, then WETH -> stables on UniV3
     function _sell(uint256 _crvAmount) internal {
         if (_crvAmount > 1e17) {
             // don't want to swap dust or we might revert
@@ -436,17 +416,6 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
                 )
             );
         }
-    }
-
-    // Sells our harvested reward token into the selected output.
-    function _sellRewards(uint256 _amount) internal {
-        IUniswapV2Router02(sushiswap).swapExactTokensForTokens(
-            _amount,
-            uint256(0),
-            rewardsPath,
-            address(this),
-            block.timestamp
-        );
     }
 
     /* ========== KEEP3RS ========== */
@@ -521,27 +490,6 @@ contract StrategyCurve3CrvRewardsClonable is StrategyCurveBase {
             targetStable = address(usdt);
         } else {
             revert("incorrect token");
-        }
-    }
-
-    ///@notice Use to add, update or remove reward token
-    function updateRewards(bool _hasRewards, address _rewardsToken)
-        external
-        onlyGovernance
-    {
-        // if we already have a rewards token, get rid of it
-        if (address(rewardsToken) != address(0)) {
-            rewardsToken.approve(sushiswap, uint256(0));
-        }
-        if (_hasRewards == false) {
-            hasRewards = false;
-            rewardsToken = IERC20(address(0));
-        } else {
-            // approve, setup our path, and turn on rewards
-            rewardsToken = IERC20(_rewardsToken);
-            rewardsToken.approve(sushiswap, type(uint256).max);
-            rewardsPath = [address(rewardsToken), address(weth)];
-            hasRewards = true;
         }
     }
 
