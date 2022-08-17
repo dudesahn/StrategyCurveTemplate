@@ -11,6 +11,7 @@ def isolation(fn_isolation):
 # set this for if we want to use tenderly or not; mostly helpful because with brownie.reverts fails in tenderly forks.
 use_tenderly = False
 
+
 ################################################## TENDERLY DEBUGGING ##################################################
 
 # change autouse to True if we want to use this fork to help debug tests
@@ -39,18 +40,17 @@ def tests_using_tenderly():
 # use this to set what chain we use. 1 for ETH, 250 for fantom
 chain_used = 1
 
-# put our pool's convex pid here
-# final tests: IB, Aave
+# put our pool's convex pid here; this is the only thing that should need to change up here **************
 @pytest.fixture(scope="session")
 def pid():
-    pid = 24  # IB 29, Aave 24
+    pid = 2  # yUSD 2, yBUSD 3
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 40_000e18
+    amount = 250_000e18  # 250k for both
     yield amount
 
 
@@ -59,9 +59,9 @@ def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
     whale = accounts.at(
-        "0x03403154afc09Ce8e44C3B185C82C6aD5f86b9ab",
-        force=True,  # IB 0x2D2421fF1b3b35e1ca8A20eb89Fb79803b304c01 holds >1.9m
-    )  # 0x03403154afc09Ce8e44C3B185C82C6aD5f86b9ab for Aave, holds 80k
+        "0xC53195Bbad57105cc9a4DF752121AfD9C15FBd8f",
+        force=True,  # yUSD 0xC53195Bbad57105cc9a4DF752121AfD9C15FBd8f
+    )  # 0x613d9871c25721E8f90ACF8cC4341Bb145F29C23 for yBUSD
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -72,23 +72,23 @@ def whale(accounts, amount, token):
 # use this if your vault is already deployed
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x39CAF13a104FF567f71fd2A4c68C026FDB6E740B"
-    # Iron Bank 0x27b7b1ad7288079A66d12350c828D3C00A6F07d7
-    # Aave 0x39CAF13a104FF567f71fd2A4c68C026FDB6E740B
+    vault_address = "0x4B5BfD52124784745c1071dcB244C6688d2533d3"
+    # yUSD 0x4B5BfD52124784745c1071dcB244C6688d2533d3
+    # yBUSD 0x8ee57c05741aA9DB947A744E713C15d4d19D8822
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyConvexAave"
+    strategy_name = "StrategyCurveUSD"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveUnderlying3Clonable):
-    contract_name = StrategyCurveUnderlying3Clonable
+def contract_name(StrategyCurveUnderlying4Clonable):
+    contract_name = StrategyCurveUnderlying4Clonable
     yield contract_name
 
 
@@ -102,9 +102,9 @@ def rewards_token():  # OGN 0x8207c1FfC5B6804F6024322CcF34F29c3541Ae26, SPELL 0x
 # curve deposit pool for old pools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0xDeBF20617708857ebe4F679508E7b7863a8A8EeE"
-    # IB 0x2dded6Da1BF5DBdF597C45fcFaa3194e53EcfeAF
-    # Aave 0xDeBF20617708857ebe4F679508E7b7863a8A8EeE
+    old_pool = "0xbBC81d23Ea2c3ec7e56D39296F0cbB648873a5d3"
+    # yUSD 0xbBC81d23Ea2c3ec7e56D39296F0cbB648873a5d3
+    # yBUSD 0xb6c057591E073249F2D9D88Ba59a46CFC9B59EdB
     yield old_pool
 
 
@@ -139,14 +139,14 @@ def is_convex():
 # if our curve gauge deposits aren't tokenized (older pools), we can't as easily do some tests and we skip them
 @pytest.fixture(scope="session")
 def gauge_is_not_tokenized():
-    gauge_is_not_tokenized = False
+    gauge_is_not_tokenized = True
     yield gauge_is_not_tokenized
 
 
 # use this to test our strategy in case there are no profits
 @pytest.fixture(scope="session")
 def no_profit():
-    no_profit = True  # Aave has really low yield, basically no profit
+    no_profit = False
     yield no_profit
 
 
@@ -167,7 +167,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 24
+    hours_to_sleep = 12
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time
@@ -423,7 +423,10 @@ if chain_used == 1:  # mainnet
                     vault.updateStrategyDebtRatio(other_strat, 5000, {"from": gov})
 
                     # turn off health check just in case it's a big harvest
-                    other_strat.setDoHealthCheck(False, {"from": gov})
+                    try:
+                        other_strat.setDoHealthCheck(False, {"from": gov})
+                    except:
+                        print("This strategy doesn't have health check")
                     other_strat.harvest({"from": gov})
                     chain.sleep(1)
                     chain.mine(1)

@@ -163,7 +163,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveUnderlying3Clonable is StrategyCurveBase {
+contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -231,7 +231,7 @@ contract StrategyCurveUnderlying3Clonable is StrategyCurveBase {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        StrategyCurveUnderlying3Clonable(newStrategy).initialize(
+        StrategyCurveUnderlying4Clonable(newStrategy).initialize(
             _vault,
             _strategist,
             _rewards,
@@ -343,9 +343,8 @@ contract StrategyCurveUnderlying3Clonable is StrategyCurveBase {
         // deposit our balance to Curve if we have any
         if (_daiBalance > 0 || _usdcBalance > 0 || _usdtBalance > 0) {
             curve.add_liquidity(
-                [_daiBalance, _usdcBalance, _usdtBalance],
-                0,
-                true
+                [_daiBalance, _usdcBalance, _usdtBalance, 0],
+                0
             );
         }
 
