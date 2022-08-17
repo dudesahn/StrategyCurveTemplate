@@ -1,5 +1,5 @@
 import pytest
-from brownie import config, Wei, Contract, ZERO_ADDRESS
+from brownie import config, Wei, Contract, chain, ZERO_ADDRESS
 import requests
 
 # Snapshots the chain before each test and reverts after test completion.
@@ -40,17 +40,18 @@ def tests_using_tenderly():
 # use this to set what chain we use. 1 for ETH, 250 for fantom
 chain_used = 1
 
-# put our pool's convex pid here; this is the only thing that should need to change up here **************
+# put our pool's convex pid here
+# final tests with sUSD (block and no block),
 @pytest.fixture(scope="session")
 def pid():
-    pid = 2  # yUSD 2, yBUSD 3
+    pid = 2  # yUSD 2, yBUSD 3, 4 sUSD
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 250_000e18  # 250k for both
+    amount = 250_000e18  # 250k for both, 75k for sUSD
     yield amount
 
 
@@ -62,6 +63,7 @@ def whale(accounts, amount, token):
         "0xC53195Bbad57105cc9a4DF752121AfD9C15FBd8f",
         force=True,  # yUSD 0xC53195Bbad57105cc9a4DF752121AfD9C15FBd8f
     )  # 0x613d9871c25721E8f90ACF8cC4341Bb145F29C23 for yBUSD
+    # sUSD 0x1f9bB27d0C66fEB932f3F8B02620A128d072f3d8
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -75,20 +77,21 @@ def vault_address():
     vault_address = "0x4B5BfD52124784745c1071dcB244C6688d2533d3"
     # yUSD 0x4B5BfD52124784745c1071dcB244C6688d2533d3
     # yBUSD 0x8ee57c05741aA9DB947A744E713C15d4d19D8822
+    # sUSD 0x5a770DbD3Ee6bAF2802D29a901Ef11501C44797A
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurveUSD"
+    strategy_name = "StrategyCurveyUSD"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveUnderlying4Clonable):
-    contract_name = StrategyCurveUnderlying4Clonable
+def contract_name(StrategyCurveOriginal4Pools):
+    contract_name = StrategyCurveOriginal4Pools
     yield contract_name
 
 
@@ -96,7 +99,35 @@ def contract_name(StrategyCurveUnderlying4Clonable):
 # this is the address of our rewards token, in this case it's a dummy (ALCX) that our whale happens to hold just used to test stuff
 @pytest.fixture(scope="session")
 def rewards_token():  # OGN 0x8207c1FfC5B6804F6024322CcF34F29c3541Ae26, SPELL 0x090185f2135308BaD17527004364eBcC2D37e5F6
-    yield Contract("0x090185f2135308BaD17527004364eBcC2D37e5F6")
+    # SNX 0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F
+    yield Contract("0xC011a73ee8576Fb46F5E1c5751cA3B9Fe0af2a6F")
+
+
+# whether or not we should try a test donation of our rewards token to make sure the strategy handles them correctly
+# if you want to bother with whale and amount below, this needs to be true
+@pytest.fixture(scope="session")
+def test_donation():
+    test_donation = False
+    yield test_donation
+
+
+# sUSD gauge uses blocks instead of seconds to determine rewards, so this needs to be true for that to test if we're earning
+@pytest.fixture(scope="session")
+def try_blocks():
+    try_blocks = False
+    yield try_blocks
+
+
+@pytest.fixture(scope="session")
+def rewards_whale(accounts):
+    # SNX whale: 0x8D6F396D210d385033b348bCae9e4f9Ea4e045bD, >600k SNX
+    yield accounts.at("0x8D6F396D210d385033b348bCae9e4f9Ea4e045bD", force=True)
+
+
+@pytest.fixture(scope="session")
+def rewards_amount():
+    rewards_amount = 50_000e18
+    yield rewards_amount
 
 
 # curve deposit pool for old pools, set to ZERO_ADDRESS otherwise
@@ -105,6 +136,7 @@ def old_pool():
     old_pool = "0xbBC81d23Ea2c3ec7e56D39296F0cbB648873a5d3"
     # yUSD 0xbBC81d23Ea2c3ec7e56D39296F0cbB648873a5d3
     # yBUSD 0xb6c057591E073249F2D9D88Ba59a46CFC9B59EdB
+    # sUSD ZERO_ADDRESS
     yield old_pool
 
 
@@ -115,7 +147,7 @@ def is_clonable():
     yield is_clonable
 
 
-# whether or not a strategy template can possibly have rewards
+# whether or not a strategy can possibly have rewards, even if they are zero (false for yUSD/yBUSD)
 @pytest.fixture(scope="session")
 def rewards_template():
     rewards_template = False
@@ -125,7 +157,7 @@ def rewards_template():
 # this is whether our pool has extra rewards tokens or not, use this to confirm that our strategy set everything up correctly.
 @pytest.fixture(scope="session")
 def has_rewards():
-    has_rewards = False
+    has_rewards = False  # only true for sUSD
     yield has_rewards
 
 
@@ -167,7 +199,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 12
+    hours_to_sleep = 12  # 12 works for sUSD,
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time
@@ -333,6 +365,7 @@ if chain_used == 1:  # mainnet
         rewards_token,
         has_rewards,
         vault_address,
+        try_blocks,
     ):
         if is_convex:
             # make sure to include all constructor parameters needed here
@@ -452,7 +485,12 @@ if chain_used == 1:  # mainnet
             "Profits on first harvest (should only be on migrations):",
             tx.events["Harvested"]["profit"] / 1e18,
         )
-        chain.sleep(10 * 3600)  # normalize share price
+        if try_blocks:
+            chain.sleep(
+                1
+            )  # if we're close to Thursday midnight UTC, sleeping might kill our ability to earn from old gauges
+        else:
+            chain.sleep(10 * 3600)  # normalize share price
         chain.mine(1)
 
         # print assets in each strategy

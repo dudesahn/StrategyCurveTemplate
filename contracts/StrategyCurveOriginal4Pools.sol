@@ -54,6 +54,10 @@ abstract contract StrategyCurveBase is BaseStrategy {
     IERC20 internal constant weth =
         IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
+    // Swap stuff
+    address internal constant sushiswap =
+        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // we use this to sell our bonus token
+
     uint256 public creditThreshold; // amount of credit in underlying tokens that will automatically trigger a harvest
     bool internal forceHarvestTriggerOnce; // only set this to true when we want to trigger our keepers to harvest for us
 
@@ -163,7 +167,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
+contract StrategyCurveOriginal4Pools is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -185,6 +189,11 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
         IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     uint24 public uniStableFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
 
+    // rewards token info. we can have more than 1 reward token but this is rare, so we don't include this in the template
+    IERC20 public rewardsToken;
+    bool public hasRewards;
+    address[] internal rewardsPath;
+
     // check for cloning
     bool internal isOriginal = true;
 
@@ -204,7 +213,7 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
     event Cloned(address indexed clone);
 
     // we use this to clone our original strategy to other vaults
-    function cloneCurveUnderlying(
+    function cloneCurveOriginals(
         address _vault,
         address _strategist,
         address _rewards,
@@ -231,7 +240,7 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        StrategyCurveUnderlying4Clonable(newStrategy).initialize(
+        StrategyCurveOriginal4Pools(newStrategy).initialize(
             _vault,
             _strategist,
             _rewards,
@@ -332,6 +341,14 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
             }
         }
 
+        if (hasRewards) {
+            proxy.claimRewards(gauge, address(rewardsToken));
+            uint256 _rewardsBalance = rewardsToken.balanceOf(address(this));
+            if (_rewardsBalance > 0) {
+                _sellRewards(_rewardsBalance);
+            }
+        }
+
         // do this even if we don't have any CRV, in case we have WETH
         _sell(_crvBalance);
 
@@ -418,6 +435,17 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
         }
     }
 
+    // Sells our harvested reward token into the selected output.
+    function _sellRewards(uint256 _amount) internal {
+        IUniswapV2Router02(sushiswap).swapExactTokensForTokens(
+            _amount,
+            uint256(0),
+            rewardsPath,
+            address(this),
+            block.timestamp
+        );
+    }
+
     /* ========== KEEP3RS ========== */
     // use this to determine when to harvest
     function harvestTrigger(uint256 callCostinEth)
@@ -490,6 +518,27 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
             targetStable = address(usdt);
         } else {
             revert("incorrect token");
+        }
+    }
+
+    ///@notice Use to add, update or remove reward token
+    function updateRewards(bool _hasRewards, address _rewardsToken)
+        external
+        onlyGovernance
+    {
+        // if we already have a rewards token, get rid of it
+        if (address(rewardsToken) != address(0)) {
+            rewardsToken.approve(sushiswap, uint256(0));
+        }
+        if (_hasRewards == false) {
+            hasRewards = false;
+            rewardsToken = IERC20(address(0));
+        } else {
+            // approve, setup our path, and turn on rewards
+            rewardsToken = IERC20(_rewardsToken);
+            rewardsToken.approve(sushiswap, type(uint256).max);
+            rewardsPath = [address(rewardsToken), address(weth)];
+            hasRewards = true;
         }
     }
 
