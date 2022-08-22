@@ -1,5 +1,5 @@
 import pytest
-from brownie import config, Wei, Contract, ZERO_ADDRESS
+from brownie import config, Wei, Contract, chain, ZERO_ADDRESS
 import requests
 
 # Snapshots the chain before each test and reverts after test completion.
@@ -10,7 +10,6 @@ def isolation(fn_isolation):
 
 # set this for if we want to use tenderly or not; mostly helpful because with brownie.reverts fails in tenderly forks.
 use_tenderly = False
-
 
 ################################################## TENDERLY DEBUGGING ##################################################
 
@@ -40,17 +39,18 @@ def tests_using_tenderly():
 # use this to set what chain we use. 1 for ETH, 250 for fantom
 chain_used = 1
 
-# put our pool's convex pid here; this is the only thing that should need to change up here **************
+
+# If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 2  # yUSD 2, yBUSD 3
+    pid = 60  # EURS 22, EURS-USDC 54, 3EUR 60
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 250_000e18  # 250k for both
+    amount = 470e18
     yield amount
 
 
@@ -58,10 +58,10 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at(
-        "0xC53195Bbad57105cc9a4DF752121AfD9C15FBd8f",
-        force=True,  # yUSD 0xC53195Bbad57105cc9a4DF752121AfD9C15FBd8f
-    )  # 0x613d9871c25721E8f90ACF8cC4341Bb145F29C23 for yBUSD
+    # EURS 0xC9f9f6cfD655417AcB8D1bB00Fe77aD9a6d9cA81, 660k
+    # EURS-USDC 0xD73c787A2276a28121B5449D29A1D6b60138ffcc, 150k
+    # 3EUR 0x9770E942e19aeB9FC935980cEB5eC81C10b1D030, 945
+    whale = accounts.at("0x9770E942e19aeB9FC935980cEB5eC81C10b1D030", force=True)
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -69,42 +69,41 @@ def whale(accounts, amount, token):
     yield whale
 
 
-# use this if your vault is already deployed
+# set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x4B5BfD52124784745c1071dcB244C6688d2533d3"
-    # yUSD 0x4B5BfD52124784745c1071dcB244C6688d2533d3
-    # yBUSD 0x8ee57c05741aA9DB947A744E713C15d4d19D8822
+    vault_address = "0x5AB64C599FcC59f0f2726A300b03166A395578Da"
+    # EURS 0x25212Df29073FfFA7A67399AcEfC2dd75a831A1A
+    # EURS-USDC 0x801Ab06154Bf539dea4385a39f5fa8534fB53073
+    # 3EUR 0x5AB64C599FcC59f0f2726A300b03166A395578Da
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurveUSD"
+    strategy_name = "StrategyConvex3EUR"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveEURSClonable):
-    contract_name = StrategyCurveEURSClonable
+def contract_name(StrategyConvexEURSClonable):
+    contract_name = StrategyConvexEURSClonable
     yield contract_name
 
 
-# we need these next two fixtures for deploying our curve strategy, but not for convex. for convex we can pull them programmatically.
-# this is the address of our rewards token, in this case it's a dummy (ALCX) that our whale happens to hold just used to test stuff
+# this is the address of our rewards token
 @pytest.fixture(scope="session")
-def rewards_token():  # OGN 0x8207c1FfC5B6804F6024322CcF34F29c3541Ae26, SPELL 0x090185f2135308BaD17527004364eBcC2D37e5F6
-    yield Contract("0x090185f2135308BaD17527004364eBcC2D37e5F6")
+def rewards_token():
+    yield Contract("0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD")
 
 
-# curve deposit pool for old pools, set to ZERO_ADDRESS otherwise
+# curve deposit pool for old metapools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0xbBC81d23Ea2c3ec7e56D39296F0cbB648873a5d3"
-    # yUSD 0xbBC81d23Ea2c3ec7e56D39296F0cbB648873a5d3
-    # yBUSD 0xb6c057591E073249F2D9D88Ba59a46CFC9B59EdB
+    old_pool = ZERO_ADDRESS  # zero address for EURS and 3EUR
+    # EURS-USDC 0x98a7F18d4E56Cfe84E3D081B40001B3d5bD3eB8B
     yield old_pool
 
 
@@ -302,7 +301,7 @@ if chain_used == 1:  # mainnet
             Vault = pm(config["dependencies"][0]).Vault
             vault = guardian.deploy(Vault)
             vault.initialize(token, gov, rewards, "", "", guardian)
-            vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
+            vault.setDepositLimit(2**256 - 1, {"from": gov})
             vault.setManagement(management, {"from": gov})
             chain.sleep(1)
         else:
@@ -373,7 +372,7 @@ if chain_used == 1:  # mainnet
             # do slightly different if vault is existing or not
             if vault_address == ZERO_ADDRESS:
                 vault.addStrategy(
-                    strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov}
+                    strategy, 10_000, 0, 2**256 - 1, 1_000, {"from": gov}
                 )
             else:
                 if vault.withdrawalQueue(1) == ZERO_ADDRESS:  # only has convex
@@ -395,14 +394,14 @@ if chain_used == 1:  # mainnet
             # do slightly different if vault is existing or not
             if vault_address == ZERO_ADDRESS:
                 vault.addStrategy(
-                    strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov}
+                    strategy, 10_000, 0, 2**256 - 1, 1_000, {"from": gov}
                 )
             else:
                 if vault.withdrawalQueue(1) == ZERO_ADDRESS:  # only has convex
                     other_strat = Contract(vault.withdrawalQueue(0))
                     vault.updateStrategyDebtRatio(other_strat, 5000, {"from": gov})
                     vault.addStrategy(
-                        strategy, 5000, 0, 2 ** 256 - 1, 1_000, {"from": gov}
+                        strategy, 5000, 0, 2**256 - 1, 1_000, {"from": gov}
                     )
 
                     # reorder so curve first, convex second
@@ -468,7 +467,6 @@ if chain_used == 1:  # mainnet
                 strategy.updateRewards(True, rewards_token, {"from": gov})
 
         yield strategy
-
 
 elif chain_used == 250:  # only fantom so far and convex doesn't exist there
 
