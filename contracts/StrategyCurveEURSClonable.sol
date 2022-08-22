@@ -163,7 +163,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
+contract StrategyCurveEURSClonable is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -174,15 +174,14 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
 
     // we use these to deposit to our curve pool
-    address public targetStable; ///@notice This is the stablecoin we are using to take profits and deposit into 3Crv.
     address internal constant uniswapv3 =
         0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    IERC20 internal constant usdt =
-        IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
     IERC20 internal constant usdc =
         IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IERC20 internal constant dai =
-        IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+    IERC20 internal constant eurs =
+        IERC20(0xdB25f211AB05b1c97D595516F45794528a807ad8);
+    ICurveFi internal constant eursusdc =
+        ICurveFi(0x98a7F18d4E56Cfe84E3D081B40001B3d5bD3eB8B);
     uint24 public uniStableFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
 
     // check for cloning
@@ -204,7 +203,7 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
     event Cloned(address indexed clone);
 
     // we use this to clone our original strategy to other vaults
-    function cloneCurveUnderlying(
+    function cloneCurveEURS(
         address _vault,
         address _strategist,
         address _rewards,
@@ -231,7 +230,7 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        StrategyCurveUnderlying4Clonable(newStrategy).initialize(
+        StrategyCurveEURSClonable(newStrategy).initialize(
             _vault,
             _strategist,
             _rewards,
@@ -286,18 +285,16 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
         proxy = ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152);
 
         // set our curve gauge contract
-        gauge = address(_gauge);
+        gauge = _gauge;
 
         // set our strategy's name
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        dai.approve(address(curve), type(uint256).max);
-        usdt.safeApprove(address(curve), type(uint256).max); // USDT requires safeApprove(), funky token
         usdc.approve(address(curve), type(uint256).max);
-
-        // start with usdt
-        targetStable = address(usdt);
+        usdc.approve(address(eursusdc), type(uint256).max);
+        eurs.approve(address(curve), type(uint256).max);
+        
 
         // set our uniswap pool fees
         uniStableFee = 500;
@@ -335,17 +332,22 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
         // do this even if we don't have any CRV, in case we have WETH
         _sell(_crvBalance);
 
-        // check for balances of tokens to deposit
-        uint256 _daiBalance = dai.balanceOf(address(this));
-        uint256 _usdcBalance = usdc.balanceOf(address(this));
-        uint256 _usdtBalance = usdt.balanceOf(address(this));
-
         // deposit our balance to Curve if we have any
-        if (_daiBalance > 0 || _usdcBalance > 0 || _usdtBalance > 0) {
-            curve.add_liquidity(
-                [_daiBalance, _usdcBalance, _usdtBalance, 0],
-                0
-            );
+        if (gauge == 0x1E212e054d74ed136256fc5a5DDdB4867c6E003F) { // EURS-USDC
+            uint256 _usdcBalance = usdc.balanceOf(address(this));
+            if (_usdcBalance > 0) {
+                curve.add_liquidity([_usdcBalance, 0], 0);
+            }
+        } else if (gauge == 0x90Bb609649E0451E5aD952683D64BD2d1f245840) { // EURS
+            uint256 _eursBalance = eurs.balanceOf(address(this));
+            if (_eursBalance > 0) {
+                curve.add_liquidity([_eursBalance, 0], 0);
+            }
+        } else { // 3EUR
+            uint256 _eursBalance = eurs.balanceOf(address(this));
+            if (_eursBalance > 0) {
+                curve.add_liquidity([0, 0, _eursBalance], 0);
+            }
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -407,7 +409,7 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
                     abi.encodePacked(
                         address(weth),
                         uint24(uniStableFee),
-                        address(targetStable)
+                        address(usdc)
                     ),
                     address(this),
                     block.timestamp,
@@ -415,6 +417,15 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
                     uint256(1)
                 )
             );
+        }
+
+        // swap only to USDC if EURS-USDC, otherwise go to EURS. remember, USDC has 6 decimals
+        if (gauge != 0x1E212e054d74ed136256fc5a5DDdB4867c6E003F) {
+            uint256 _usdcBalance = usdc.balanceOf(address(this));
+            if (_usdcBalance > 1e6) {
+                // don't want to swap dust or we might revert
+                eursusdc.exchange(0, 1, _usdcBalance, 0);
+            }
         }
     }
 
@@ -479,19 +490,6 @@ contract StrategyCurveUnderlying4Clonable is StrategyCurveBase {
     /* ========== SETTERS ========== */
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
-
-    ///@notice Set optimal token to sell harvested funds for depositing to Curve.
-    function setOptimal(uint256 _optimal) external onlyVaultManagers {
-        if (_optimal == 0) {
-            targetStable = address(dai);
-        } else if (_optimal == 1) {
-            targetStable = address(usdc);
-        } else if (_optimal == 2) {
-            targetStable = address(usdt);
-        } else {
-            revert("incorrect token");
-        }
-    }
 
     ///@notice Credit threshold is in want token, and will trigger a harvest if strategy credit is above this amount.
     function setCreditThreshold(uint256 _creditThreshold)

@@ -87,8 +87,8 @@ def strategy_name():
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveUnderlying4Clonable):
-    contract_name = StrategyCurveUnderlying4Clonable
+def contract_name(StrategyCurveEURSClonable):
+    contract_name = StrategyCurveEURSClonable
     yield contract_name
 
 
