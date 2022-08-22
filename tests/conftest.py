@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 60  # EURS 22, EURS-USDC 54, 3EUR 60
+    pid = 54 # EURS 22, EURS-USDC 54, 3EUR 60. 3EUR and EURS are fucked, need to work with 54 for now
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 470e18
+    amount = 550e18 # 550 for EURS-USDC, 330k for EURS, 472 for 3EUR
     yield amount
 
 
@@ -59,9 +59,9 @@ def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
     # EURS 0xC9f9f6cfD655417AcB8D1bB00Fe77aD9a6d9cA81, 660k
-    # EURS-USDC 0xD73c787A2276a28121B5449D29A1D6b60138ffcc, 150k
+    # EURS-USDC 0xeCb456EA5365865EbAb8a2661B0c503410e9B347, 1100
     # 3EUR 0x9770E942e19aeB9FC935980cEB5eC81C10b1D030, 945
-    whale = accounts.at("0x9770E942e19aeB9FC935980cEB5eC81C10b1D030", force=True)
+    whale = accounts.at("0xeCb456EA5365865EbAb8a2661B0c503410e9B347", force=True)
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -72,7 +72,7 @@ def whale(accounts, amount, token):
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x5AB64C599FcC59f0f2726A300b03166A395578Da"
+    vault_address = "0x801Ab06154Bf539dea4385a39f5fa8534fB53073"
     # EURS 0x25212Df29073FfFA7A67399AcEfC2dd75a831A1A
     # EURS-USDC 0x801Ab06154Bf539dea4385a39f5fa8534fB53073
     # 3EUR 0x5AB64C599FcC59f0f2726A300b03166A395578Da
@@ -82,7 +82,7 @@ def vault_address():
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurve3EUR"
+    strategy_name = "StrategyCurveEURSUSDC"
     yield strategy_name
 
 
@@ -102,7 +102,7 @@ def rewards_token():
 # curve deposit pool for old metapools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = ZERO_ADDRESS  # zero address for EURS and 3EUR
+    old_pool = "0x98a7F18d4E56Cfe84E3D081B40001B3d5bD3eB8B"  # zero address for EURS and 3EUR
     # EURS-USDC 0x98a7F18d4E56Cfe84E3D081B40001B3d5bD3eB8B
     yield old_pool
 
@@ -138,7 +138,7 @@ def is_convex():
 # if our curve gauge deposits aren't tokenized (older pools), we can't as easily do some tests and we skip them
 @pytest.fixture(scope="session")
 def gauge_is_not_tokenized():
-    gauge_is_not_tokenized = True
+    gauge_is_not_tokenized = False
     yield gauge_is_not_tokenized
 
 
