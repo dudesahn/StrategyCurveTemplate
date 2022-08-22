@@ -82,14 +82,14 @@ def vault_address():
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyConvex3EUR"
+    strategy_name = "StrategyCurve3EUR"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyConvexEURSClonable):
-    contract_name = StrategyConvexEURSClonable
+def contract_name(StrategyCurveEURSClonable):
+    contract_name = StrategyCurveEURSClonable
     yield contract_name
 
 
