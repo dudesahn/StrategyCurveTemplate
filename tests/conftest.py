@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 54 # EURS 22, EURS-USDC 54, 3EUR 60. 3EUR and EURS are fucked, need to work with 54 for now
+    pid = 54  # EURS 22, EURS-USDC 54, 3EUR 60. 3EUR and EURS are fucked, need to work with 54 for now
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 550e18 # 550 for EURS-USDC, 330k for EURS, 472 for 3EUR
+    amount = 550e18  # 550 for EURS-USDC, 330k for EURS, 472 for 3EUR
     yield amount
 
 
@@ -102,7 +102,9 @@ def rewards_token():
 # curve deposit pool for old metapools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0x98a7F18d4E56Cfe84E3D081B40001B3d5bD3eB8B"  # zero address for EURS and 3EUR
+    old_pool = (
+        "0x98a7F18d4E56Cfe84E3D081B40001B3d5bD3eB8B"  # zero address for EURS and 3EUR
+    )
     # EURS-USDC 0x98a7F18d4E56Cfe84E3D081B40001B3d5bD3eB8B
     yield old_pool
 
@@ -301,7 +303,7 @@ if chain_used == 1:  # mainnet
             Vault = pm(config["dependencies"][0]).Vault
             vault = guardian.deploy(Vault)
             vault.initialize(token, gov, rewards, "", "", guardian)
-            vault.setDepositLimit(2**256 - 1, {"from": gov})
+            vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
             vault.setManagement(management, {"from": gov})
             chain.sleep(1)
         else:
@@ -372,7 +374,7 @@ if chain_used == 1:  # mainnet
             # do slightly different if vault is existing or not
             if vault_address == ZERO_ADDRESS:
                 vault.addStrategy(
-                    strategy, 10_000, 0, 2**256 - 1, 1_000, {"from": gov}
+                    strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov}
                 )
             else:
                 if vault.withdrawalQueue(1) == ZERO_ADDRESS:  # only has convex
@@ -394,14 +396,14 @@ if chain_used == 1:  # mainnet
             # do slightly different if vault is existing or not
             if vault_address == ZERO_ADDRESS:
                 vault.addStrategy(
-                    strategy, 10_000, 0, 2**256 - 1, 1_000, {"from": gov}
+                    strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov}
                 )
             else:
                 if vault.withdrawalQueue(1) == ZERO_ADDRESS:  # only has convex
                     other_strat = Contract(vault.withdrawalQueue(0))
                     vault.updateStrategyDebtRatio(other_strat, 5000, {"from": gov})
                     vault.addStrategy(
-                        strategy, 5000, 0, 2**256 - 1, 1_000, {"from": gov}
+                        strategy, 5000, 0, 2 ** 256 - 1, 1_000, {"from": gov}
                     )
 
                     # reorder so curve first, convex second
@@ -467,6 +469,7 @@ if chain_used == 1:  # mainnet
                 strategy.updateRewards(True, rewards_token, {"from": gov})
 
         yield strategy
+
 
 elif chain_used == 250:  # only fantom so far and convex doesn't exist there
 

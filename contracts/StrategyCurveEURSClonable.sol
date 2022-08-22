@@ -291,10 +291,13 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        usdc.approve(address(curve), type(uint256).max);
-        usdc.approve(address(eursusdc), type(uint256).max);
-        eurs.approve(address(curve), type(uint256).max);
-        
+        if (gauge == 0x65CA7Dc5CB661fC58De57B1E1aF404649a27AD35) {
+            // EURS-USDC
+            usdc.approve(address(curve), type(uint256).max);
+        } else {
+            usdc.approve(address(eursusdc), type(uint256).max);
+            eurs.approve(address(curve), type(uint256).max);
+        }
 
         // set our uniswap pool fees
         uniStableFee = 500;
@@ -333,17 +336,20 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
         _sell(_crvBalance);
 
         // deposit our balance to Curve if we have any
-        if (gauge == 0x1E212e054d74ed136256fc5a5DDdB4867c6E003F) { // EURS-USDC
+        if (gauge == 0x65CA7Dc5CB661fC58De57B1E1aF404649a27AD35) {
+            // EURS-USDC
             uint256 _usdcBalance = usdc.balanceOf(address(this));
             if (_usdcBalance > 0) {
                 curve.add_liquidity([_usdcBalance, 0], 0);
             }
-        } else if (gauge == 0x90Bb609649E0451E5aD952683D64BD2d1f245840) { // EURS
+        } else if (gauge == 0x90Bb609649E0451E5aD952683D64BD2d1f245840) {
+            // EURS
             uint256 _eursBalance = eurs.balanceOf(address(this));
             if (_eursBalance > 0) {
                 curve.add_liquidity([_eursBalance, 0], 0);
             }
-        } else { // 3EUR
+        } else {
+            // 3EUR
             uint256 _eursBalance = eurs.balanceOf(address(this));
             if (_eursBalance > 0) {
                 curve.add_liquidity([0, 0, _eursBalance], 0);
@@ -420,7 +426,7 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
         }
 
         // swap only to USDC if EURS-USDC, otherwise go to EURS. remember, USDC has 6 decimals
-        if (gauge != 0x1E212e054d74ed136256fc5a5DDdB4867c6E003F) {
+        if (gauge != 0x65CA7Dc5CB661fC58De57B1E1aF404649a27AD35) {
             uint256 _usdcBalance = usdc.balanceOf(address(this));
             if (_usdcBalance > 1e6) {
                 // don't want to swap dust or we might revert
