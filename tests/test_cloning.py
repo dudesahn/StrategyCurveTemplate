@@ -30,6 +30,7 @@ def test_cloning(
     rewards_token,
     is_clonable,
     proxy,
+    use_crv,
 ):
 
     # skip this test if we don't clone
@@ -40,27 +41,23 @@ def test_cloning(
     if tests_using_tenderly:
         if is_convex:
             ## clone our strategy
-            tx = strategy.cloneCurve3CrvRewards(
+            tx = strategy.cloneConvexOldEth(
                 vault,
                 strategist,
                 rewards,
                 keeper,
-                pid,
-                pool,
-                strategy_name,
+                use_crv,
                 {"from": gov},
             )
             newStrategy = contract_name.at(tx.return_value)
         else:
             ## clone our strategy
-            tx = strategy.cloneCurveSBTCFactory(
+            tx = strategy.cloneCurveCrvCvxPairs(
                 vault,
                 strategist,
                 rewards,
                 keeper,
-                gauge,
-                pool,
-                strategy_name,
+                use_crv,
                 {"from": gov},
             )
             newStrategy = contract_name.at(tx.return_value)
@@ -73,21 +70,17 @@ def test_cloning(
                     strategist,
                     rewards,
                     keeper,
-                    pid,
-                    pool,
-                    strategy_name,
+                    use_crv,
                     {"from": gov},
                 )
 
             ## clone our strategy
-            tx = strategy.cloneCurveSBTCFactory(
+            tx = strategy.cloneConvexOldEth(
                 vault,
                 strategist,
                 rewards,
                 keeper,
-                pid,
-                pool,
-                strategy_name,
+                use_crv,
                 {"from": gov},
             )
             newStrategy = contract_name.at(tx.return_value)
@@ -99,22 +92,18 @@ def test_cloning(
                     strategist,
                     rewards,
                     keeper,
-                    pid,
-                    pool,
-                    strategy_name,
+                    use_crv,
                     {"from": gov},
                 )
 
             ## shouldn't be able to clone a clone
             with brownie.reverts():
-                newStrategy.cloneCurve3CrvRewards(
+                newStrategy.cloneConvexOldEth(
                     vault,
                     strategist,
                     rewards,
                     keeper,
-                    pid,
-                    pool,
-                    strategy_name,
+                    use_crv,
                     {"from": gov},
                 )
 
@@ -126,21 +115,17 @@ def test_cloning(
                     strategist,
                     rewards,
                     keeper,
-                    gauge,
-                    pool,
-                    strategy_name,
+                    use_crv,
                     {"from": gov},
                 )
 
             ## clone our strategy
-            tx = strategy.cloneCurveSBTCFactory(
+            tx = strategy.cloneCurveCrvCvxPairs(
                 vault,
                 strategist,
                 rewards,
                 keeper,
-                gauge,
-                pool,
-                strategy_name,
+                use_crv,
                 {"from": gov},
             )
             newStrategy = contract_name.at(tx.return_value)
@@ -152,22 +137,18 @@ def test_cloning(
                     strategist,
                     rewards,
                     keeper,
-                    gauge,
-                    pool,
-                    strategy_name,
+                    use_crv,
                     {"from": gov},
                 )
 
             ## shouldn't be able to clone a clone
             with brownie.reverts():
-                newStrategy.cloneCurveSBTCFactory(
+                newStrategy.cloneCurveCrvCvxPairs(
                     vault,
                     strategist,
                     rewards,
                     keeper,
-                    gauge,
-                    pool,
-                    strategy_name,
+                    use_crv,
                     {"from": gov},
                 )
 
@@ -195,12 +176,10 @@ def test_cloning(
 
     # add rewards token if needed
     if has_rewards:
-        if (
-            is_convex
-        ):  # pBTC is the only BTC factory token with rewards, and it needs UniV2
-            newStrategy.updateRewards(True, 0, False, {"from": gov})
+        if is_convex:
+            newStrategy.updateRewards(True, 0, {"from": gov})
         else:
-            newStrategy.updateRewards(True, rewards_token, False, {"from": gov})
+            newStrategy.updateRewards(True, rewards_token, {"from": gov})
 
     ## deposit to the vault after approving; this is basically just our simple_harvest test
     before_pps = vault.pricePerShare()

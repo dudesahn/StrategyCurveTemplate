@@ -30,6 +30,7 @@ def test_odds_and_ends(
     has_rewards,
     sleep_time,
     gauge_is_not_tokenized,
+    use_crv,
 ):
 
     ## deposit to the vault after approving. turn off health check before each harvest since we're doing weird shit
@@ -89,17 +90,13 @@ def test_odds_and_ends(
         new_strategy = strategist.deploy(
             contract_name,
             vault,
-            pid,
-            pool,
-            strategy_name,
+            use_crv,
         )
     else:
         new_strategy = strategist.deploy(
             contract_name,
             vault,
-            gauge,
-            pool,
-            strategy_name,
+            use_crv,
         )
 
     total_old = strategy.estimatedTotalAssets()
@@ -222,6 +219,7 @@ def test_odds_and_ends_migration(
     strategy_name,
     is_convex,
     sleep_time,
+    use_crv,
 ):
 
     ## deposit to the vault after approving
@@ -236,17 +234,13 @@ def test_odds_and_ends_migration(
         new_strategy = strategist.deploy(
             contract_name,
             vault,
-            pid,
-            pool,
-            strategy_name,
+            use_crv,
         )
     else:
         new_strategy = strategist.deploy(
             contract_name,
             vault,
-            gauge,
-            pool,
-            strategy_name,
+            use_crv,
         )
     total_old = strategy.estimatedTotalAssets()
 
@@ -648,13 +642,14 @@ def test_odds_and_ends_no_profit(
     if is_convex:
         assert strategy.needsEarmarkReward()
 
-    # sleep to try and generate profit, but it shouldn't. we should still be able to harvest though.
+    # sleep to try and generate profit, but it shouldn't (if convex). we should still be able to harvest though.
     chain.sleep(1)
     if is_convex:
         assert strategy.claimableBalance() == 0
     tx = strategy.harvest({"from": gov})
     profit = tx.events["Harvested"]["profit"]
-    assert profit == 0
+    if is_convex:
+        assert profit == 0
 
     # withdraw and confirm we made money, or at least that we have about the same
     vault.withdraw({"from": whale})
