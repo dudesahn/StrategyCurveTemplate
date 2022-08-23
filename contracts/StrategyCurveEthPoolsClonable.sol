@@ -323,6 +323,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
 
         // claim and sell our rewards if we have them
         if (hasRewards) {
+            proxy.claimRewards(gauge, address(rewardsToken));
             uint256 _rewardsBalance =
                 IERC20(rewardsToken).balanceOf(address(this));
             if (_rewardsBalance > 0) {
