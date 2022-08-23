@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 27  # sETH 23, alETH 49, ankrETH 27
+    pid = 6  # 6 renBTC , 8 HBTC
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 12e18  # sETH 100e18, alETH 20e18, ankrETH 12e18
+    amount = 5e18  # 11 renBTC , 2 HBTC
     yield amount
 
 
@@ -58,39 +58,35 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    # sETH 0x781814773609D820aB3FFF2f21624d93E9B4784A
-    # alETH 0xAB8e74017a8Cc7c15FFcCd726603790d26d7DeCa
-    # ankrETH 0x7A791a73eAE3CCE350a2b4A34E3231D151D09D72
-    whale = accounts.at("0x7A791a73eAE3CCE350a2b4A34E3231D151D09D72", force=True)
+    # 0x647481c033A4A2E816175cE115a0804adf793891 renBTC , HBTC 0x7a7A599D2384ed203cFEA49721628aA851E0DA16
+    whale = accounts.at("0x647481c033A4A2E816175cE115a0804adf793891", force=True)
     if token.balanceOf(whale) < 2 * amount:
-        print("Token address:", token.address, "Whale:", whale)
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
         )
     yield whale
 
 
-# use this if your vault is already deployed
+# set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x132d8D2C76Db3812403431fAcB00F3453Fc42125"
-    # sETH 0x986b4AFF588a109c09B50A03f42E4110E29D353F
-    # alETH 0x718AbE90777F5B778B52D553a5aBaa148DD0dc5D
-    # ankrETH 0x132d8D2C76Db3812403431fAcB00F3453Fc42125
+    vault_address = "0x7047F90229a057C13BF847C0744D646CFb6c9E1A"
+    # renBTC 0x7047F90229a057C13BF847C0744D646CFb6c9E1A
+    # HBTC 0x625b7DF2fa8aBe21B0A976736CDa4775523aeD1E
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyConvexsETH"  # StrategyConvexsETH, StrategyConvexalETH
+    strategy_name = "StrategyConvexrenBTC"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveEthPoolsClonable):
-    contract_name = StrategyCurveEthPoolsClonable
+def contract_name(StrategyCurve2BTCClonable):
+    contract_name = StrategyCurve2BTCClonable
     yield contract_name
 
 
@@ -100,10 +96,12 @@ def rewards_token():
     yield Contract("0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD")
 
 
-# curve deposit pool for old metapools, set to ZERO_ADDRESS otherwise
+# curve deposit pool for old metapools and crypto pools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = ZERO_ADDRESS
+    old_pool = "0x93054188d876f558f4a66B2EF1d97d16eDf0895B"
+    # renBTC 0x93054188d876f558f4a66B2EF1d97d16eDf0895B
+    # HBTC 0x4CA9b3063Ec5866A4B82E437059D2C43d1be596F
     yield old_pool
 
 
@@ -117,7 +115,7 @@ def is_clonable():
 # whether or not a strategy template can possibly have rewards
 @pytest.fixture(scope="session")
 def rewards_template():
-    rewards_template = True
+    rewards_template = False
     yield rewards_template
 
 
@@ -138,7 +136,7 @@ def is_convex():
 # if our curve gauge deposits aren't tokenized (older pools), we can't as easily do some tests and we skip them
 @pytest.fixture(scope="session")
 def gauge_is_not_tokenized():
-    gauge_is_not_tokenized = False
+    gauge_is_not_tokenized = True
     yield gauge_is_not_tokenized
 
 
@@ -166,7 +164,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 12
+    hours_to_sleep = 48  # 6 HBTC, 48 renBTC
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time
