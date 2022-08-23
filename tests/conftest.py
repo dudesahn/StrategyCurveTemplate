@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 6  # 6 renBTC , 8 HBTC
+    pid = 99  # TOKE 99
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 5e18  # 11 renBTC , 2 HBTC
+    amount = 5.5e18  # 11.75 tokens total
     yield amount
 
 
@@ -58,8 +58,7 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    # 0x647481c033A4A2E816175cE115a0804adf793891 renBTC , HBTC 0x7a7A599D2384ed203cFEA49721628aA851E0DA16
-    whale = accounts.at("0x647481c033A4A2E816175cE115a0804adf793891", force=True)
+    whale = accounts.at("0xeCb456EA5365865EbAb8a2661B0c503410e9B347", force=True)
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -70,23 +69,21 @@ def whale(accounts, amount, token):
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x7047F90229a057C13BF847C0744D646CFb6c9E1A"
-    # renBTC 0x7047F90229a057C13BF847C0744D646CFb6c9E1A
-    # HBTC 0x625b7DF2fa8aBe21B0A976736CDa4775523aeD1E
+    vault_address = ZERO_ADDRESS
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyConvexrenBTC"
+    strategy_name = "StrategyConvexTOKE-ETH"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurve2BTCClonable):
-    contract_name = StrategyCurve2BTCClonable
+def contract_name(StrategyCurveEthVolatilePairsClonable):
+    contract_name = StrategyCurveEthVolatilePairsClonable
     yield contract_name
 
 
@@ -99,9 +96,7 @@ def rewards_token():
 # curve deposit pool for old metapools and crypto pools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0x93054188d876f558f4a66B2EF1d97d16eDf0895B"
-    # renBTC 0x93054188d876f558f4a66B2EF1d97d16eDf0895B
-    # HBTC 0x4CA9b3063Ec5866A4B82E437059D2C43d1be596F
+    old_pool = "0xe0e970a99bc4F53804D8145beBBc7eBc9422Ba7F"
     yield old_pool
 
 
@@ -136,7 +131,7 @@ def is_convex():
 # if our curve gauge deposits aren't tokenized (older pools), we can't as easily do some tests and we skip them
 @pytest.fixture(scope="session")
 def gauge_is_not_tokenized():
-    gauge_is_not_tokenized = True
+    gauge_is_not_tokenized = False
     yield gauge_is_not_tokenized
 
 
@@ -164,7 +159,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 48  # 6 HBTC, 48 renBTC
+    hours_to_sleep = 48
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time
@@ -293,7 +288,7 @@ if chain_used == 1:  # mainnet
     def strategist(accounts):
         yield accounts.at("0x16388463d60FFE0661Cf7F1f31a7D658aC790ff7", force=True)
 
-    @pytest.fixture(scope="session")
+    @pytest.fixture(scope="module")
     def vault(pm, gov, rewards, guardian, management, token, chain, vault_address):
         if vault_address == ZERO_ADDRESS:
             Vault = pm(config["dependencies"][0]).Vault
@@ -302,6 +297,7 @@ if chain_used == 1:  # mainnet
             vault.setDepositLimit(2 ** 256 - 1, {"from": gov})
             vault.setManagement(management, {"from": gov})
             chain.sleep(1)
+            chain.mine(1)
         else:
             vault = Contract(vault_address)
         yield vault
@@ -372,6 +368,9 @@ if chain_used == 1:  # mainnet
                 vault.addStrategy(
                     strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov}
                 )
+                print("New Vault, Convex Strategy")
+                chain.sleep(1)
+                chain.mine(1)
             else:
                 if vault.withdrawalQueue(1) == ZERO_ADDRESS:  # only has convex
                     old_strategy = Contract(vault.withdrawalQueue(0))
@@ -394,6 +393,9 @@ if chain_used == 1:  # mainnet
                 vault.addStrategy(
                     strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov}
                 )
+                print("New Vault, Curve Strategy")
+                chain.sleep(1)
+                chain.mine(1)
             else:
                 if vault.withdrawalQueue(1) == ZERO_ADDRESS:  # only has convex
                     other_strat = Contract(vault.withdrawalQueue(0))
@@ -444,13 +446,14 @@ if chain_used == 1:  # mainnet
         strategy.setMaxReportDelay(86400 * 21, {"from": gov})
 
         # harvest to send our funds into the strategy and fix any triggers already true
-        tx = strategy.harvest({"from": gov})
-        print(
-            "Profits on first harvest (should only be on migrations):",
-            tx.events["Harvested"]["profit"] / 1e18,
-        )
-        chain.sleep(10 * 3600)  # normalize share price
-        chain.mine(1)
+        if vault_address != ZERO_ADDRESS:
+            tx = strategy.harvest({"from": gov})
+            print(
+                "Profits on first harvest (should only be on migrations):",
+                tx.events["Harvested"]["profit"] / 1e18,
+            )
+            chain.sleep(10 * 3600)  # normalize share price
+            chain.mine(1)
 
         # print assets in each strategy
         if vault_address != ZERO_ADDRESS and other_strat != ZERO_ADDRESS:
@@ -550,7 +553,7 @@ elif chain_used == 250:  # only fantom so far and convex doesn't exist there
 
 
 # use this if your strategy is already deployed
-# @pytest.fixture(scope="function")
+# @pytest.fixture(scope="module")
 # def strategy():
 #     # parameters for this are: strategy, vault, max deposit, minTimePerInvest, slippage protection (10000 = 100% slippage allowed),
 #     strategy = Contract("0xC1810aa7F733269C39D640f240555d0A4ebF4264")
