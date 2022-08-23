@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 99  # TOKE 99
+    pid = 95  # CAD 79, STG 95
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 5.5e18  # 11.75 tokens total
+    amount = 10_000e18  # 10k for STG-USDC
     yield amount
 
 
@@ -58,7 +58,9 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0xeCb456EA5365865EbAb8a2661B0c503410e9B347", force=True)
+    whale = accounts.at(
+        "0xeCb456EA5365865EbAb8a2661B0c503410e9B347", force=True
+    )  # 0x26f539A0fE189A7f228D7982BF10Bc294FA9070c for CAD-USDC (270k total), 0xeCb456EA5365865EbAb8a2661B0c503410e9B347 for STG-USDC
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -69,21 +71,22 @@ def whale(accounts, amount, token):
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = ZERO_ADDRESS
+    vault_address = "0x341bb10D8f5947f3066502DC8125d9b8949FD3D6"
+    # STG-USDC 0x341bb10D8f5947f3066502DC8125d9b8949FD3D6, others ZERO
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyConvexTOKE-ETH"
+    strategy_name = "StrategyCurveSTG-USDC"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveEthVolatilePairsClonable):
-    contract_name = StrategyCurveEthVolatilePairsClonable
+def contract_name(StrategyCurveUsdcPairsClonable):
+    contract_name = StrategyCurveUsdcPairsClonable
     yield contract_name
 
 
@@ -96,7 +99,8 @@ def rewards_token():
 # curve deposit pool for old metapools and crypto pools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0xe0e970a99bc4F53804D8145beBBc7eBc9422Ba7F"
+    old_pool = "0x3211C6cBeF1429da3D0d58494938299C92Ad5860"
+    # 0xE07BDe9Eb53DEFfa979daE36882014B758111a78 for CAD-USDC, 0x3211C6cBeF1429da3D0d58494938299C92Ad5860 for STG-USDC
     yield old_pool
 
 

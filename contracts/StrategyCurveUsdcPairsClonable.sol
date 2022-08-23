@@ -171,7 +171,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveEthVolatilePairsClonable is StrategyCurveBase {
+contract StrategyCurveUsdcPairsClonable is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -180,6 +180,13 @@ contract StrategyCurveEthVolatilePairsClonable is StrategyCurveBase {
 
     ICurveFi internal constant crveth =
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
+
+    // sell our weth to usdc on uniV3
+    IERC20 internal constant usdc =
+        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    address internal constant uniswapv3 =
+        0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    uint24 public uniStableFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
 
     // check for cloning
     bool internal isOriginal = true;
@@ -200,7 +207,7 @@ contract StrategyCurveEthVolatilePairsClonable is StrategyCurveBase {
     event Cloned(address indexed clone);
 
     // we use this to clone our original strategy to other vaults
-    function cloneCurveEthPairs(
+    function cloneCurveUsdcPairs(
         address _vault,
         address _strategist,
         address _rewards,
@@ -227,7 +234,7 @@ contract StrategyCurveEthVolatilePairsClonable is StrategyCurveBase {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        StrategyCurveEthVolatilePairsClonable(newStrategy).initialize(
+        StrategyCurveUsdcPairsClonable(newStrategy).initialize(
             _vault,
             _strategist,
             _rewards,
@@ -273,6 +280,7 @@ contract StrategyCurveEthVolatilePairsClonable is StrategyCurveBase {
         // these are our standard approvals. want = Curve LP token
         want.approve(address(proxy), type(uint256).max);
         crv.approve(address(crveth), type(uint256).max);
+        weth.approve(uniswapv3, type(uint256).max);
 
         // this is the pool specific to this vault
         curve = ICurveFi(_curvePool);
@@ -285,6 +293,12 @@ contract StrategyCurveEthVolatilePairsClonable is StrategyCurveBase {
 
         // set our strategy's name
         stratName = _name;
+
+        // set our needed curve approvals
+        usdc.approve(address(curve), type(uint256).max);
+
+        // set our uniswap pool fees
+        uniStableFee = 500;
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -319,10 +333,10 @@ contract StrategyCurveEthVolatilePairsClonable is StrategyCurveBase {
         // do this even if we don't have any CRV, in case we have WETH
         _sell(_crvBalance);
 
-        // deposit our ETH to the pool
-        uint256 ethBalance = address(this).balance;
-        if (ethBalance > 0) {
-            curve.add_liquidity{value: ethBalance}([ethBalance, 0], 0, true);
+        // deposit our USDC to the pool
+        uint256 usdcBalance = usdc.balanceOf(address(this));
+        if (usdcBalance > 0) {
+            curve.add_liquidity([0, usdcBalance], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -373,7 +387,24 @@ contract StrategyCurveEthVolatilePairsClonable is StrategyCurveBase {
     function _sell(uint256 _crvAmount) internal {
         if (_crvAmount > 1e17) {
             // don't want to swap dust or we might revert
-            crveth.exchange(1, 0, _crvAmount, 0, true);
+            crveth.exchange(1, 0, _crvAmount, 0, false);
+        }
+
+        uint256 _wethBalance = weth.balanceOf(address(this));
+        if (_wethBalance > 1e15) {
+            IUniV3(uniswapv3).exactInput(
+                IUniV3.ExactInputParams(
+                    abi.encodePacked(
+                        address(weth),
+                        uint24(uniStableFee),
+                        address(usdc)
+                    ),
+                    address(this),
+                    block.timestamp,
+                    _wethBalance,
+                    uint256(1)
+                )
+            );
         }
     }
 
@@ -435,9 +466,6 @@ contract StrategyCurveEthVolatilePairsClonable is StrategyCurveBase {
                 .isCurrentBaseFeeAcceptable();
     }
 
-    // include so our contract plays nicely with ether
-    receive() external payable {}
-
     /* ========== SETTERS ========== */
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
@@ -448,5 +476,10 @@ contract StrategyCurveEthVolatilePairsClonable is StrategyCurveBase {
         onlyVaultManagers
     {
         creditThreshold = _creditThreshold;
+    }
+
+    /// @notice Set the fee pool we'd like to swap through on UniV3 (1% = 10_000)
+    function setUniFees(uint24 _stableFee) external onlyVaultManagers {
+        uniStableFee = _stableFee;
     }
 }
