@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 54  # EURS 22, EURS-USDC 54, 3EUR 60. 3EUR and EURS are fucked, need to work with 54 for now
+    pid = 27  # sETH 23, alETH 49, ankrETH 27
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 550e18  # 550 for EURS-USDC, 330k for EURS, 472 for 3EUR
+    amount = 12e18  # sETH 100e18, alETH 20e18, ankrETH 12e18
     yield amount
 
 
@@ -58,38 +58,39 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    # EURS 0xC9f9f6cfD655417AcB8D1bB00Fe77aD9a6d9cA81, 660k
-    # EURS-USDC 0xeCb456EA5365865EbAb8a2661B0c503410e9B347, 1100
-    # 3EUR 0x9770E942e19aeB9FC935980cEB5eC81C10b1D030, 945
-    whale = accounts.at("0xeCb456EA5365865EbAb8a2661B0c503410e9B347", force=True)
+    # sETH 0x781814773609D820aB3FFF2f21624d93E9B4784A
+    # alETH 0xAB8e74017a8Cc7c15FFcCd726603790d26d7DeCa
+    # ankrETH 0x7A791a73eAE3CCE350a2b4A34E3231D151D09D72
+    whale = accounts.at("0x7A791a73eAE3CCE350a2b4A34E3231D151D09D72", force=True)
     if token.balanceOf(whale) < 2 * amount:
+        print("Token address:", token.address, "Whale:", whale)
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
         )
     yield whale
 
 
-# set address if already deployed, use ZERO_ADDRESS if not
+# use this if your vault is already deployed
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x801Ab06154Bf539dea4385a39f5fa8534fB53073"
-    # EURS 0x25212Df29073FfFA7A67399AcEfC2dd75a831A1A
-    # EURS-USDC 0x801Ab06154Bf539dea4385a39f5fa8534fB53073
-    # 3EUR 0x5AB64C599FcC59f0f2726A300b03166A395578Da
+    vault_address = "0x132d8D2C76Db3812403431fAcB00F3453Fc42125"
+    # sETH 0x986b4AFF588a109c09B50A03f42E4110E29D353F
+    # alETH 0x718AbE90777F5B778B52D553a5aBaa148DD0dc5D
+    # ankrETH 0x132d8D2C76Db3812403431fAcB00F3453Fc42125
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurveEURSUSDC"
+    strategy_name = "StrategyConvexsETH"  # StrategyConvexsETH, StrategyConvexalETH
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveEURSClonable):
-    contract_name = StrategyCurveEURSClonable
+def contract_name(StrategyCurveEthPoolsClonable):
+    contract_name = StrategyCurveEthPoolsClonable
     yield contract_name
 
 
@@ -102,10 +103,7 @@ def rewards_token():
 # curve deposit pool for old metapools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = (
-        "0x98a7F18d4E56Cfe84E3D081B40001B3d5bD3eB8B"  # zero address for EURS and 3EUR
-    )
-    # EURS-USDC 0x98a7F18d4E56Cfe84E3D081B40001B3d5bD3eB8B
+    old_pool = ZERO_ADDRESS
     yield old_pool
 
 
@@ -119,7 +117,7 @@ def is_clonable():
 # whether or not a strategy template can possibly have rewards
 @pytest.fixture(scope="session")
 def rewards_template():
-    rewards_template = False
+    rewards_template = True
     yield rewards_template
 
 

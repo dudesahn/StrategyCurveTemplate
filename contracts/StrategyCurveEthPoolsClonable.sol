@@ -19,6 +19,10 @@ interface IBaseFee {
     function isCurrentBaseFeeAcceptable() external view returns (bool);
 }
 
+interface IWeth {
+    function withdraw(uint256 wad) external;
+}
+
 interface IUniV3 {
     struct ExactInputParams {
         bytes path;
@@ -48,6 +52,10 @@ abstract contract StrategyCurveBase is BaseStrategy {
     uint256 public keepCRV; // the percentage of CRV we re-lock for boost (in basis points)
     address public constant voter = 0xF147b8125d2ef93FB6965Db97D6746952a133934; // Yearn's veCRV voter
     uint256 internal constant FEE_DENOMINATOR = 10000; // this means all of our fee values are in basis points
+
+    // Swap stuff
+    address internal constant sushiswap =
+        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // we use this to sell our bonus token
 
     IERC20 internal constant crv =
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
@@ -163,7 +171,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveEURSClonable is StrategyCurveBase {
+contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -173,16 +181,10 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
     ICurveFi internal constant crveth =
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
 
-    // we use these to deposit to our curve pool
-    address internal constant uniswapv3 =
-        0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    IERC20 internal constant usdc =
-        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IERC20 internal constant eurs =
-        IERC20(0xdB25f211AB05b1c97D595516F45794528a807ad8);
-    ICurveFi internal constant eursusdc =
-        ICurveFi(0x98a7F18d4E56Cfe84E3D081B40001B3d5bD3eB8B);
-    uint24 public uniStableFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
+    // rewards token info. we can have more than 1 reward token but this is rare, so we don't include this in the template
+    IERC20 public rewardsToken;
+    bool public hasRewards;
+    address[] internal rewardsPath;
 
     // check for cloning
     bool internal isOriginal = true;
@@ -203,7 +205,7 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
     event Cloned(address indexed clone);
 
     // we use this to clone our original strategy to other vaults
-    function cloneCurveEURS(
+    function cloneCurveOldEth(
         address _vault,
         address _strategist,
         address _rewards,
@@ -211,7 +213,7 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
         address _gauge,
         address _curvePool,
         string memory _name
-    ) external returns (address newStrategy) {
+    ) external returns (address payable newStrategy) {
         require(isOriginal);
         // Copied from https://github.com/optionality/clone-factory/blob/master/contracts/CloneFactory.sol
         bytes20 addressBytes = bytes20(address(this));
@@ -230,7 +232,7 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        StrategyCurveEURSClonable(newStrategy).initialize(
+        StrategyCurveEthPoolsClonable(newStrategy).initialize(
             _vault,
             _strategist,
             _rewards,
@@ -270,13 +272,12 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
         maxReportDelay = 100 days; // 100 days in seconds
         minReportDelay = 21 days; // 21 days in seconds
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
-        creditThreshold = 1e6 * 1e18;
+        creditThreshold = 500 * 1e18;
         keepCRV = 1000; // default of 10%
 
         // these are our standard approvals. want = Curve LP token
         want.approve(address(proxy), type(uint256).max);
         crv.approve(address(crveth), type(uint256).max);
-        weth.approve(uniswapv3, type(uint256).max);
 
         // this is the pool specific to this vault
         curve = ICurveFi(_curvePool);
@@ -289,18 +290,6 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
 
         // set our strategy's name
         stratName = _name;
-
-        // these are our approvals and path specific to this contract
-        if (gauge == 0x65CA7Dc5CB661fC58De57B1E1aF404649a27AD35) {
-            // EURS-USDC
-            usdc.approve(address(curve), type(uint256).max);
-        } else {
-            usdc.approve(address(eursusdc), type(uint256).max);
-            eurs.approve(address(curve), type(uint256).max);
-        }
-
-        // set our uniswap pool fees
-        uniStableFee = 500;
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -332,28 +321,22 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
             }
         }
 
+        // claim and sell our rewards if we have them
+        if (hasRewards) {
+            uint256 _rewardsBalance =
+                IERC20(rewardsToken).balanceOf(address(this));
+            if (_rewardsBalance > 0) {
+                _sellRewards(_rewardsBalance);
+            }
+        }
+
         // do this even if we don't have any CRV, in case we have WETH
         _sell(_crvBalance);
 
-        // deposit our balance to Curve if we have any
-        if (gauge == 0x65CA7Dc5CB661fC58De57B1E1aF404649a27AD35) {
-            // EURS-USDC
-            uint256 _usdcBalance = usdc.balanceOf(address(this));
-            if (_usdcBalance > 0) {
-                curve.add_liquidity([_usdcBalance, 0], 0);
-            }
-        } else if (gauge == 0x90Bb609649E0451E5aD952683D64BD2d1f245840) {
-            // EURS
-            uint256 _eursBalance = eurs.balanceOf(address(this));
-            if (_eursBalance > 0) {
-                curve.add_liquidity([_eursBalance, 0], 0);
-            }
-        } else {
-            // 3EUR
-            uint256 _eursBalance = eurs.balanceOf(address(this));
-            if (_eursBalance > 0) {
-                curve.add_liquidity([0, 0, _eursBalance], 0);
-            }
+        // deposit our ETH to the pool
+        uint256 ethBalance = address(this).balance;
+        if (ethBalance > 0) {
+            curve.add_liquidity{value: ethBalance}([ethBalance, 0], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -407,32 +390,21 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
             crveth.exchange(1, 0, _crvAmount, 0, false);
         }
 
-        uint256 _wethBalance = weth.balanceOf(address(this));
-        if (_wethBalance > 1e15) {
-            // don't want to swap dust or we might revert
-            IUniV3(uniswapv3).exactInput(
-                IUniV3.ExactInputParams(
-                    abi.encodePacked(
-                        address(weth),
-                        uint24(uniStableFee),
-                        address(usdc)
-                    ),
-                    address(this),
-                    block.timestamp,
-                    _wethBalance,
-                    uint256(1)
-                )
-            );
+        uint256 wethBalance = weth.balanceOf(address(this));
+        if (wethBalance > 0) {
+            IWeth(address(weth)).withdraw(wethBalance);
         }
+    }
 
-        // swap only to USDC if EURS-USDC, otherwise go to EURS. remember, USDC has 6 decimals
-        if (gauge != 0x65CA7Dc5CB661fC58De57B1E1aF404649a27AD35) {
-            uint256 _usdcBalance = usdc.balanceOf(address(this));
-            if (_usdcBalance > 1e6) {
-                // don't want to swap dust or we might revert
-                eursusdc.exchange(0, 1, _usdcBalance, 0);
-            }
-        }
+    // Sells our harvested reward token into the selected output.
+    function _sellRewards(uint256 _amount) internal {
+        IUniswapV2Router02(sushiswap).swapExactTokensForTokens(
+            _amount,
+            uint256(0),
+            rewardsPath,
+            address(this),
+            block.timestamp
+        );
     }
 
     /* ========== KEEP3RS ========== */
@@ -493,6 +465,9 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
                 .isCurrentBaseFeeAcceptable();
     }
 
+    // include so our contract plays nicely with ether
+    receive() external payable {}
+
     /* ========== SETTERS ========== */
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
@@ -505,8 +480,24 @@ contract StrategyCurveEURSClonable is StrategyCurveBase {
         creditThreshold = _creditThreshold;
     }
 
-    ///@notice Set the fee pool we'd like to swap through on UniV3 (1% = 10_000)
-    function setUniFees(uint24 _stableFee) external onlyVaultManagers {
-        uniStableFee = _stableFee;
+    ///@notice Use to add, update or remove reward token
+    function updateRewards(bool _hasRewards, address _rewardsToken)
+        external
+        onlyGovernance
+    {
+        // if we already have a rewards token, get rid of it
+        if (address(rewardsToken) != address(0)) {
+            rewardsToken.approve(sushiswap, uint256(0));
+        }
+        if (_hasRewards == false) {
+            hasRewards = false;
+            rewardsToken = IERC20(address(0));
+        } else {
+            // approve, setup our path, and turn on rewards
+            rewardsToken = IERC20(_rewardsToken);
+            rewardsToken.approve(sushiswap, type(uint256).max);
+            rewardsPath = [address(rewardsToken), address(weth)];
+            hasRewards = true;
+        }
     }
 }
