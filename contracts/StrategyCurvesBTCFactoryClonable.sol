@@ -174,12 +174,14 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurvesBTCMetapoolsOldClonable is StrategyCurveBase {
+contract StrategyCurvesBTCFactoryClonable is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
     // Curve stuff
-    ICurveFi public curve; ///@notice This is our curve pool specific to this vault
+    address public curve; // Curve Pool, this is our pool specific to this vault
+    ICurveFi internal constant zapContract =
+        ICurveFi(0x7AbDBAf29929e7F8621B757D2a7c04d78d633834); // this is used for depositing to all sBTC metapools
 
     ICurveFi internal constant crveth =
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
@@ -217,7 +219,7 @@ contract StrategyCurvesBTCMetapoolsOldClonable is StrategyCurveBase {
     event Cloned(address indexed clone);
 
     // we use this to clone our original strategy to other vaults
-    function cloneCurveSBTCOld(
+    function cloneCurveSBTCFactory(
         address _vault,
         address _strategist,
         address _rewards,
@@ -244,7 +246,7 @@ contract StrategyCurvesBTCMetapoolsOldClonable is StrategyCurveBase {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        StrategyCurvesBTCMetapoolsOldClonable(newStrategy).initialize(
+        StrategyCurvesBTCFactoryClonable(newStrategy).initialize(
             _vault,
             _strategist,
             _rewards,
@@ -292,8 +294,8 @@ contract StrategyCurvesBTCMetapoolsOldClonable is StrategyCurveBase {
         crv.approve(address(crveth), type(uint256).max);
         weth.approve(uniswapv3, type(uint256).max);
 
-        // this is the pool specific to this vault
-        curve = ICurveFi(_curvePool);
+        // this is the pool specific to this vault, but we only use it as an address
+        curve = _curvePool;
 
         // need to set our proxy when cloning since it's not a constant
         proxy = ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152);
@@ -305,7 +307,7 @@ contract StrategyCurvesBTCMetapoolsOldClonable is StrategyCurveBase {
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        wbtc.approve(address(curve), type(uint256).max);
+        wbtc.approve(address(zapContract), type(uint256).max);
 
         // set our uniswap pool fees
         uniWbtcFee = 500;
@@ -355,7 +357,7 @@ contract StrategyCurvesBTCMetapoolsOldClonable is StrategyCurveBase {
         // deposit our balance to Curve if we have any
         uint256 _wbtcBalance = wbtc.balanceOf(address(this));
         if (_wbtcBalance > 0) {
-            curve.add_liquidity([0, 0, _wbtcBalance, 0], 0);
+            zapContract.add_liquidity(curve, [0, 0, _wbtcBalance, 0], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio

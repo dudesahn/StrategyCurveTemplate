@@ -15,13 +15,13 @@ def test_simple_harvest(
     strategist_ms,
     gauge,
     voter,
+    rewardsContract,
     amount,
     sleep_time,
     is_slippery,
     no_profit,
     is_convex,
     crv,
-    rewardsContract,
     accounts,
 ):
     ## deposit to the vault after approving

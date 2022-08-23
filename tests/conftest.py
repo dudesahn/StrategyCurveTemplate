@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 20  # tBTC 16, oBTC 20. tBTC not working well currently since yield is so low
+    pid = 77  # new pBTC 77, tBTC2 111
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 0.25e18  # tBTC has >10, oBTC has 0.5
+    amount = 0.11e18  # new pBTC only has 0.236160916790470771, tBTC2 has >1
     yield amount
 
 
@@ -58,8 +58,8 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    # tBTC 0x3d24D77bEC08549D7Ea86c4e9937204C11E153f1, oBTC 0x806ed321E5D8255Ff1478b9171bDC97ae09b2d37
-    whale = accounts.at("0x806ed321E5D8255Ff1478b9171bDC97ae09b2d37", force=True)
+    # new pBTC 0xf324Dca1Dc621FCF118690a9c6baE40fbD8f09b7, tBTC2 0x2deb3882b844BD83360BbeaF7d901e59664Df204
+    whale = accounts.at("0xf324Dca1Dc621FCF118690a9c6baE40fbD8f09b7", force=True)
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -70,38 +70,61 @@ def whale(accounts, amount, token):
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0xe9Dc63083c464d6EDcCFf23444fF3CFc6886f6FB"
-    # tBTC 0x23D3D0f1c697247d5e0a9efB37d8b0ED0C464f7f
-    # oBTC 0xe9Dc63083c464d6EDcCFf23444fF3CFc6886f6FB
+    vault_address = ZERO_ADDRESS
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurveoBTC"
+    strategy_name = "StrategyConvexpBTC"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurvesBTCMetapoolsOldClonable):
-    contract_name = StrategyCurvesBTCMetapoolsOldClonable
+def contract_name(StrategyCurvesBTCFactoryClonable):
+    contract_name = StrategyCurvesBTCFactoryClonable
     yield contract_name
 
 
 # this is the address of our rewards token
 @pytest.fixture(scope="session")
-def rewards_token():  # oBTC has one but don't worry about it for now
+def rewards_token():  # PNT (pBTC) 0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD
     yield Contract("0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD")
+
+
+# whether or not we should try a test donation of our rewards token to make sure the strategy handles them correctly
+# if you want to bother with whale and amount below, this needs to be true
+@pytest.fixture(scope="session")
+def test_donation():
+    test_donation = True
+    yield test_donation
+
+
+# sUSD gauge uses blocks instead of seconds to determine rewards, so this needs to be true for that to test if we're earning
+@pytest.fixture(scope="session")
+def try_blocks():
+    try_blocks = False
+    yield try_blocks
+
+
+@pytest.fixture(scope="session")
+def rewards_whale(accounts):
+    # PNT whale: 0xF977814e90dA44bFA03b6295A0616a897441aceC, >13m PNT
+    yield accounts.at("0xF977814e90dA44bFA03b6295A0616a897441aceC", force=True)
+
+
+@pytest.fixture(scope="session")
+def rewards_amount():
+    rewards_amount = 100_000e18
+    yield rewards_amount
 
 
 # curve deposit pool for old metapools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0xd5BCf53e2C81e1991570f33Fa881c49EEa570C8D"
-    # tBTC 0xaa82ca713D94bBA7A89CEAB55314F9EfFEdDc78c
-    # oBTC 0xd5BCf53e2C81e1991570f33Fa881c49EEa570C8D
+    old_pool = ZERO_ADDRESS
     yield old_pool
 
 
@@ -112,17 +135,17 @@ def is_clonable():
     yield is_clonable
 
 
-# whether or not a strategy template can possibly have rewards
+# whether or not a strategy can possibly have rewards
 @pytest.fixture(scope="session")
 def rewards_template():
-    rewards_template = False
+    rewards_template = True  # true for pBTC
     yield rewards_template
 
 
 # this is whether our pool has extra rewards tokens or not, use this to confirm that our strategy set everything up correctly.
 @pytest.fixture(scope="session")
 def has_rewards():
-    has_rewards = False
+    has_rewards = True  # true for pBTC
     yield has_rewards
 
 
@@ -143,7 +166,7 @@ def gauge_is_not_tokenized():
 # use this to test our strategy in case there are no profits
 @pytest.fixture(scope="session")
 def no_profit():
-    no_profit = False
+    no_profit = True  # seems to be false for pBTC curve, but not convex
     yield no_profit
 
 
@@ -164,7 +187,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 24  # oBTC 6 hours
+    hours_to_sleep = 6  # try 12 for curve since we're close to epoch end
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time
@@ -211,6 +234,10 @@ if chain_used == 1:  # mainnet
         yield Contract("0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5")
 
     @pytest.fixture(scope="session")
+    def curve_cryptoswap_registry():
+        yield Contract("0x4AacF35761d06Aa7142B9326612A42A2b9170E33")
+
+    @pytest.fixture(scope="session")
     def healthCheck():
         yield Contract("0xDDCea799fF1699e98EDF118e0629A974Df7DF012")
 
@@ -239,16 +266,24 @@ if chain_used == 1:  # mainnet
     # gauge for the curve pool
     @pytest.fixture(scope="session")
     def gauge(pid, booster):
-        # this should be the address of the convex deposit token
         gauge = booster.poolInfo(pid)[2]
         yield Contract(gauge)
 
     # curve deposit pool
     @pytest.fixture(scope="session")
-    def pool(token, curve_registry, old_pool):
+    def pool(token, curve_registry, curve_cryptoswap_registry, old_pool):
         if old_pool == ZERO_ADDRESS:
             if curve_registry.get_pool_from_lp_token(token) == ZERO_ADDRESS:
-                poolContract = token
+                if (
+                    curve_cryptoswap_registry.get_pool_from_lp_token(token)
+                    == ZERO_ADDRESS
+                ):
+                    poolContract = token
+                else:
+                    poolAddress = curve_cryptoswap_registry.get_pool_from_lp_token(
+                        token
+                    )
+                    poolContract = Contract(poolAddress)
             else:
                 poolAddress = curve_registry.get_pool_from_lp_token(token)
                 poolContract = Contract(poolAddress)
