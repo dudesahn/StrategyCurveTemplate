@@ -167,25 +167,22 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveUsdcPairsClonable is StrategyCurveBase {
+contract StrategyCurvesBTC is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
     // Curve stuff
-    ICurveFi public curve; ///@notice This is our curve pool specific to this vault
+    ICurveFi public curve; /// @notice This is our curve pool specific to this vault
 
     ICurveFi internal constant crveth =
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
 
-    // sell our weth to usdc on uniV3
-    IERC20 internal constant usdc =
-        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    // we use these to deposit to our curve pool
     address internal constant uniswapv3 =
         0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    uint24 public uniStableFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
-
-    // check for cloning
-    bool internal isOriginal = true;
+    IERC20 internal constant wbtc =
+        IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+    uint24 public uniWbtcFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -195,82 +192,11 @@ contract StrategyCurveUsdcPairsClonable is StrategyCurveBase {
         address _curvePool,
         string memory _name
     ) public StrategyCurveBase(_vault) {
-        _initializeStrat(_gauge, _curvePool, _name);
-    }
-
-    /* ========== CLONING ========== */
-
-    event Cloned(address indexed clone);
-
-    // we use this to clone our original strategy to other vaults
-    function cloneCurveUsdcPairs(
-        address _vault,
-        address _strategist,
-        address _rewards,
-        address _keeper,
-        address _gauge,
-        address _curvePool,
-        string memory _name
-    ) external returns (address payable newStrategy) {
-        require(isOriginal);
-        // Copied from https://github.com/optionality/clone-factory/blob/master/contracts/CloneFactory.sol
-        bytes20 addressBytes = bytes20(address(this));
-        assembly {
-            // EIP-1167 bytecode
-            let clone_code := mload(0x40)
-            mstore(
-                clone_code,
-                0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000
-            )
-            mstore(add(clone_code, 0x14), addressBytes)
-            mstore(
-                add(clone_code, 0x28),
-                0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000
-            )
-            newStrategy := create(0, clone_code, 0x37)
-        }
-
-        StrategyCurveUsdcPairsClonable(newStrategy).initialize(
-            _vault,
-            _strategist,
-            _rewards,
-            _keeper,
-            _gauge,
-            _curvePool,
-            _name
-        );
-
-        emit Cloned(newStrategy);
-    }
-
-    // this will only be called by the clone function above
-    function initialize(
-        address _vault,
-        address _strategist,
-        address _rewards,
-        address _keeper,
-        address _gauge,
-        address _curvePool,
-        string memory _name
-    ) public {
-        _initialize(_vault, _strategist, _rewards, _keeper);
-        _initializeStrat(_gauge, _curvePool, _name);
-    }
-
-    // this is called by our original strategy, as well as any clones
-    function _initializeStrat(
-        address _gauge,
-        address _curvePool,
-        string memory _name
-    ) internal {
-        // make sure that we haven't initialized this before
-        require(address(curve) == address(0)); // already initialized.
-
         // You can set these parameters on deployment to whatever you want
         maxReportDelay = 100 days; // 100 days in seconds
         minReportDelay = 21 days; // 21 days in seconds
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
-        creditThreshold = 1e6 * 1e18;
+        creditThreshold = 10 * 1e18; // 10 BTC
         keepCRV = 1000; // default of 10%
 
         // these are our standard approvals. want = Curve LP token
@@ -290,11 +216,11 @@ contract StrategyCurveUsdcPairsClonable is StrategyCurveBase {
         // set our strategy's name
         stratName = _name;
 
-        // set our needed curve approvals
-        usdc.approve(address(curve), type(uint256).max);
+        // these are our approvals and path specific to this contract
+        wbtc.approve(address(curve), type(uint256).max);
 
         // set our uniswap pool fees
-        uniStableFee = 500;
+        uniWbtcFee = 500;
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -329,10 +255,10 @@ contract StrategyCurveUsdcPairsClonable is StrategyCurveBase {
         // do this even if we don't have any CRV, in case we have WETH
         _sell(_crvBalance);
 
-        // deposit our USDC to the pool
-        uint256 usdcBalance = usdc.balanceOf(address(this));
-        if (usdcBalance > 0) {
-            curve.add_liquidity([0, usdcBalance], 0);
+        // deposit our balance to Curve if we have any
+        uint256 _wbtcBalance = wbtc.balanceOf(address(this));
+        if (_wbtcBalance > 0) {
+            curve.add_liquidity([0, _wbtcBalance, 0], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -379,7 +305,7 @@ contract StrategyCurveUsdcPairsClonable is StrategyCurveBase {
         crv.safeTransfer(_newStrategy, crv.balanceOf(address(this)));
     }
 
-    // Sells our harvested CRV into ETH
+    // Sells our harvested CRV into ETH then WBTC
     function _sell(uint256 _crvAmount) internal {
         if (_crvAmount > 1e17) {
             // don't want to swap dust or we might revert
@@ -388,12 +314,13 @@ contract StrategyCurveUsdcPairsClonable is StrategyCurveBase {
 
         uint256 _wethBalance = weth.balanceOf(address(this));
         if (_wethBalance > 1e15) {
+            // don't want to swap dust or we might revert
             IUniV3(uniswapv3).exactInput(
                 IUniV3.ExactInputParams(
                     abi.encodePacked(
                         address(weth),
-                        uint24(uniStableFee),
-                        address(usdc)
+                        uint24(uniWbtcFee),
+                        address(wbtc)
                     ),
                     address(this),
                     block.timestamp,
@@ -475,7 +402,7 @@ contract StrategyCurveUsdcPairsClonable is StrategyCurveBase {
     }
 
     /// @notice Set the fee pool we'd like to swap through on UniV3 (1% = 10_000)
-    function setUniFees(uint24 _stableFee) external onlyVaultManagers {
-        uniStableFee = _stableFee;
+    function setUniFees(uint24 _wbtcFee) external onlyVaultManagers {
+        uniWbtcFee = _wbtcFee;
     }
 }
