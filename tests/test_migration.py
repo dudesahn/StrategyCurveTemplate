@@ -24,7 +24,6 @@ def test_migration(
     sleep_time,
     is_convex,
     gauge,
-    use_crv,
 ):
 
     ## deposit to the vault after approving
@@ -40,7 +39,9 @@ def test_migration(
         new_strategy = strategist.deploy(
             contract_name,
             vault,
-            use_crv,
+            pid,
+            pool,
+            strategy_name,
         )
 
         # can we harvest an unactivated strategy? should be no
@@ -52,7 +53,9 @@ def test_migration(
         new_strategy = strategist.deploy(
             contract_name,
             vault,
-            use_crv,
+            gauge,
+            pool,
+            strategy_name,
         )
         # harvestTrigger check for isActive() doesn't work if we have multiple curve strategies for the same LP
 

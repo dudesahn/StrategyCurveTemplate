@@ -58,8 +58,6 @@ def test_setters(
     strategy.setDebtThreshold(1, {"from": gov})
     strategy.setMaxReportDelay(0, {"from": gov})
     strategy.setMaxReportDelay(1e18, {"from": gov})
-    strategy.setMetadataURI(0, {"from": gov})
-    strategy.setMinReportDelay(100, {"from": gov})
     strategy.setProfitFactor(1000, {"from": gov})
     strategy.setRewards(gov, {"from": strategist})
 

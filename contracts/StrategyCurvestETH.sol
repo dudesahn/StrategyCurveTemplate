@@ -4,7 +4,9 @@ pragma experimental ABIEncoderV2;
 
 // These are the core Yearn libraries
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 
 import "./interfaces/curve.sol";
@@ -39,7 +41,9 @@ interface IUniV3 {
 }
 
 abstract contract StrategyCurveBase is BaseStrategy {
+    using SafeERC20 for IERC20;
     using Address for address;
+    using SafeMath for uint256;
 
     /* ========== STATE VARIABLES ========== */
     // these should stay the same across different wants.
@@ -55,10 +59,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
 
     // Swap stuff
     address internal constant sushiswap =
-        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // we use this to sell our bonus token mostly
-    address internal constant uniswapV2 =
-        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D; // use this for weird tokens with more liquidity on UniV2
-    address public router; // the router selected to sell our bonus token
+        0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F; // we use this to sell our bonus token
 
     IERC20 internal constant crv =
         IERC20(0xD533a949740bb3306d119CC777fa900bA034cd52);
@@ -133,16 +134,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
         }
     }
 
-    // fire sale, get rid of it all!
-    function liquidateAllPositions() internal override returns (uint256) {
-        uint256 _stakedBal = stakedBalance();
-        if (_stakedBal > 0) {
-            // don't bother withdrawing zero
-            proxy.withdraw(gauge, address(want), _stakedBal);
-        }
-        return balanceOfWant();
-    }
-
     function protectedTokens()
         internal
         view
@@ -160,7 +151,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     // Set the amount of CRV to be locked in Yearn's veCRV voter from each harvest. Default is 10%.
-    function setKeepCRV(uint256 _keepCRV) external onlyVaultManagers {
+    function setKeepCRV(uint256 _keepCRV) external onlyAuthorized {
         require(_keepCRV <= 10_000);
         keepCRV = _keepCRV;
     }
@@ -168,13 +159,13 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // This allows us to manually harvest with our keeper as needed
     function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce)
         external
-        onlyVaultManagers
+        onlyAuthorized
     {
         forceHarvestTriggerOnce = _forceHarvestTriggerOnce;
     }
 }
 
-contract StrategyCurveCrvCvxPairsClonable is StrategyCurveBase {
+contract StrategyCurvestETH is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -183,98 +174,22 @@ contract StrategyCurveCrvCvxPairsClonable is StrategyCurveBase {
 
     ICurveFi internal constant crveth =
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
-    ICurveFi internal constant cvxeth =
-        ICurveFi(0xB576491F1E6e5E62f1d8F26062Ee822B40B0E0d4); // use curve's new CVX-ETH crypto pool to sell our CVX
 
-    // check for cloning
-    bool internal isOriginal = true;
-
-    // use this to determine if we are CRV-ETH or CVX-ETH
-    bool public isCrvEthLp;
+    // rewards token info. we can have more than 1 reward token but this is rare, so we don't include this in the template
+    IERC20 public rewardsToken;
+    bool public hasRewards;
+    address[] internal rewardsPath;
 
     /* ========== CONSTRUCTOR ========== */
 
-    constructor(address _vault, bool _isCrvEthLp)
-        public
-        StrategyCurveBase(_vault)
-    {
-        _initializeStrat(_isCrvEthLp);
-    }
-
-    /* ========== CLONING ========== */
-
-    event Cloned(address indexed clone);
-
-    // we use this to clone our original strategy to other vaults
-    function cloneCurveCrvCvxPairs(
+    constructor(
         address _vault,
-        address _strategist,
-        address _rewards,
-        address _keeper,
-        bool _isCrvEthLp
-    ) external returns (address payable newStrategy) {
-        require(isOriginal);
-        // Copied from https://github.com/optionality/clone-factory/blob/master/contracts/CloneFactory.sol
-        bytes20 addressBytes = bytes20(address(this));
-        assembly {
-            // EIP-1167 bytecode
-            let clone_code := mload(0x40)
-            mstore(
-                clone_code,
-                0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000
-            )
-            mstore(add(clone_code, 0x14), addressBytes)
-            mstore(
-                add(clone_code, 0x28),
-                0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000
-            )
-            newStrategy := create(0, clone_code, 0x37)
-        }
-
-        StrategyCurveCrvCvxPairsClonable(newStrategy).initialize(
-            _vault,
-            _strategist,
-            _rewards,
-            _keeper,
-            _isCrvEthLp
-        );
-
-        emit Cloned(newStrategy);
-    }
-
-    // this will only be called by the clone function above
-    function initialize(
-        address _vault,
-        address _strategist,
-        address _rewards,
-        address _keeper,
-        bool _isCrvEthLp
-    ) public {
-        _initialize(_vault, _strategist, _rewards, _keeper);
-        _initializeStrat(_isCrvEthLp);
-    }
-
-    // this is called by our original strategy, as well as any clones
-    function _initializeStrat(bool _isCrvEthLp) internal {
-        // make sure that we haven't initialized this before
-        require(address(curve) == address(0)); // already initialized.
-
-        // set up our CRV-ETH or CVX_ETH LP
-        if (_isCrvEthLp) {
-            curve = crveth; // this is the pool specific to this vault
-            gauge = 0x1cEBdB0856dd985fAe9b8fEa2262469360B8a3a6;
-            stratName = "StrategyConvexCRVETH"; // set our strategy's name
-            isCrvEthLp = true;
-        } else {
-            curve = cvxeth;
-            gauge = 0x7E1444BA99dcdFfE8fBdb42C02F0005D14f13BE1;
-            stratName = "StrategyConvexCVXETH";
-            isCrvEthLp = false;
-        }
-
+        address _gauge,
+        address _curvePool,
+        string memory _name
+    ) public StrategyCurveBase(_vault) {
         // You can set these parameters on deployment to whatever you want
         maxReportDelay = 100 days; // 100 days in seconds
-        minReportDelay = 21 days; // 21 days in seconds
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
         creditThreshold = 1e6 * 1e18;
         keepCRV = 1000; // default of 10%
@@ -283,8 +198,17 @@ contract StrategyCurveCrvCvxPairsClonable is StrategyCurveBase {
         want.approve(address(proxy), type(uint256).max);
         crv.approve(address(crveth), type(uint256).max);
 
+        // this is the pool specific to this vault
+        curve = ICurveFi(_curvePool);
+
         // need to set our proxy when cloning since it's not a constant
         proxy = ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152);
+
+        // set our curve gauge contract
+        gauge = _gauge;
+
+        // set our strategy's name
+        stratName = _name;
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -316,30 +240,23 @@ contract StrategyCurveCrvCvxPairsClonable is StrategyCurveBase {
             }
         }
 
+        // claim and sell our rewards if we have them
+        if (hasRewards) {
+            proxy.claimRewards(gauge, address(rewardsToken));
+            uint256 _rewardsBalance =
+                IERC20(rewardsToken).balanceOf(address(this));
+            if (_rewardsBalance > 0) {
+                _sellRewards(_rewardsBalance);
+            }
+        }
+
         // do this even if we don't have any CRV, in case we have WETH
         _sell(_crvBalance);
 
-        // deposit our assets to the pool
-        uint256 ethBalance;
-        if (isCrvEthLp) {
-            uint256 crvBalance = crv.balanceOf(address(this));
-            ethBalance = address(this).balance;
-            if (ethBalance > 0 || crvBalance > 0) {
-                curve.add_liquidity{value: ethBalance}(
-                    [ethBalance, crvBalance],
-                    0,
-                    true
-                );
-            }
-        } else {
-            ethBalance = address(this).balance;
-            if (ethBalance > 0) {
-                curve.add_liquidity{value: ethBalance}(
-                    [ethBalance, 0],
-                    0,
-                    true
-                );
-            }
+        // deposit our ETH to the pool
+        uint256 ethBalance = address(this).balance;
+        if (ethBalance > 0) {
+            curve.add_liquidity{value: ethBalance}([ethBalance, 0], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -366,7 +283,7 @@ contract StrategyCurveCrvCvxPairsClonable is StrategyCurveBase {
             uint256 _wantBal = balanceOfWant();
             if (_profit.add(_debtPayment) > _wantBal) {
                 // this should only be hit following donations to strategy
-                liquidateAllPositions();
+                liquidatePosition(assets);
             }
         }
         // if assets are less than debt, we are in trouble
@@ -386,14 +303,28 @@ contract StrategyCurveCrvCvxPairsClonable is StrategyCurveBase {
         crv.safeTransfer(_newStrategy, crv.balanceOf(address(this)));
     }
 
-    // Sell our CRV for ETH on Curve if necessary
+    // Sells our CRV -> WETH on Curve, and the unwraps this and any other WETH from our rewards.
     function _sell(uint256 _crvAmount) internal {
-        if (!isCrvEthLp) {
-            if (_crvAmount > 1e17) {
-                // don't want to swap dust or we might revert
-                crveth.exchange(1, 0, _crvAmount, 0, true);
-            }
+        if (_crvAmount > 1e17) {
+            // don't want to swap dust or we might revert
+            crveth.exchange(1, 0, _crvAmount, 0, false);
         }
+
+        uint256 wethBalance = weth.balanceOf(address(this));
+        if (wethBalance > 0) {
+            IWeth(address(weth)).withdraw(wethBalance);
+        }
+    }
+
+    // Sells our harvested reward token into the selected output.
+    function _sellRewards(uint256 _amount) internal {
+        IUniswapV2Router02(sushiswap).swapExactTokensForTokens(
+            _amount,
+            uint256(0),
+            rewardsPath,
+            address(this),
+            block.timestamp
+        );
     }
 
     /* ========== KEEP3RS ========== */
@@ -409,12 +340,6 @@ contract StrategyCurveCrvCvxPairsClonable is StrategyCurveBase {
             return false;
         }
 
-        StrategyParams memory params = vault.strategies(address(this));
-        // harvest no matter what once we reach our maxDelay
-        if (block.timestamp.sub(params.lastReport) > maxReportDelay) {
-            return true;
-        }
-
         // check if the base fee gas price is higher than we allow. if it is, block harvests.
         if (!isBaseFeeAcceptable()) {
             return false;
@@ -425,8 +350,9 @@ contract StrategyCurveCrvCvxPairsClonable is StrategyCurveBase {
             return true;
         }
 
-        // harvest if we hit our minDelay, but only if our gas price is acceptable
-        if (block.timestamp.sub(params.lastReport) > minReportDelay) {
+        StrategyParams memory params = vault.strategies(address(this));
+        // stETH doesn't have minReportDelay :(
+        if (block.timestamp.sub(params.lastReport) > maxReportDelay) {
             return true;
         }
 
@@ -438,14 +364,6 @@ contract StrategyCurveCrvCvxPairsClonable is StrategyCurveBase {
         // otherwise, we don't harvest
         return false;
     }
-
-    // convert our keeper's eth cost into want, we don't need this anymore since we don't use baseStrategy harvestTrigger
-    function ethToWant(uint256 _ethAmount)
-        public
-        view
-        override
-        returns (uint256)
-    {}
 
     // check if the current baseFee is below our external target
     function isBaseFeeAcceptable() internal view returns (bool) {
@@ -464,8 +382,29 @@ contract StrategyCurveCrvCvxPairsClonable is StrategyCurveBase {
     ///@notice Credit threshold is in want token, and will trigger a harvest if strategy credit is above this amount.
     function setCreditThreshold(uint256 _creditThreshold)
         external
-        onlyVaultManagers
+        onlyAuthorized
     {
         creditThreshold = _creditThreshold;
+    }
+
+    ///@notice Use to add, update or remove reward token
+    function updateRewards(bool _hasRewards, address _rewardsToken)
+        external
+        onlyGovernance
+    {
+        // if we already have a rewards token, get rid of it
+        if (address(rewardsToken) != address(0)) {
+            rewardsToken.approve(sushiswap, uint256(0));
+        }
+        if (_hasRewards == false) {
+            hasRewards = false;
+            rewardsToken = IERC20(address(0));
+        } else {
+            // approve, setup our path, and turn on rewards
+            rewardsToken = IERC20(_rewardsToken);
+            rewardsToken.approve(sushiswap, type(uint256).max);
+            rewardsPath = [address(rewardsToken), address(weth)];
+            hasRewards = true;
+        }
     }
 }

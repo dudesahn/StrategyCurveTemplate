@@ -39,6 +39,7 @@ def test_simple_harvest(
         stakingBeforeHarvest = strategy.stakedBalance()
 
     # harvest, store asset amount
+    strategy.setDoHealthCheck(False, {"from": gov})
     tx = strategy.harvest({"from": gov})
     print("Harvest info:", tx.events["Harvested"])
     chain.sleep(1)
@@ -47,7 +48,7 @@ def test_simple_harvest(
     assert old_assets > 0
     assert token.balanceOf(strategy) == 0
     assert strategy.estimatedTotalAssets() > 0
-    print("Starting Assets: ", old_assets / 1e18)
+    print("Assets after first harvest: ", old_assets / 1e18)
 
     # try and include custom logic here to check that funds are in the staking contract (if needed)
     if is_convex:

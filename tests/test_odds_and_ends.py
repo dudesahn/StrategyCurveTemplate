@@ -30,7 +30,6 @@ def test_odds_and_ends(
     has_rewards,
     sleep_time,
     gauge_is_not_tokenized,
-    use_crv,
 ):
 
     ## deposit to the vault after approving. turn off health check before each harvest since we're doing weird shit
@@ -90,13 +89,17 @@ def test_odds_and_ends(
         new_strategy = strategist.deploy(
             contract_name,
             vault,
-            use_crv,
+            pid,
+            pool,
+            strategy_name,
         )
     else:
         new_strategy = strategist.deploy(
             contract_name,
             vault,
-            use_crv,
+            gauge,
+            pool,
+            strategy_name,
         )
 
     total_old = strategy.estimatedTotalAssets()
@@ -127,11 +130,6 @@ def test_odds_and_ends(
     vaultAssets_2 = vault.totalAssets()
     assert vaultAssets_2 >= startingVault
     print("\nAssets after 1 day harvest: ", vaultAssets_2)
-
-    # check our oracle
-    one_eth_in_want = strategy.ethToWant(1000000000000000000)
-    print("This is how much want one ETH buys:", one_eth_in_want)
-    zero_eth_in_want = strategy.ethToWant(0)
 
     # check our views
     strategy.apiVersion()
@@ -219,7 +217,6 @@ def test_odds_and_ends_migration(
     strategy_name,
     is_convex,
     sleep_time,
-    use_crv,
 ):
 
     ## deposit to the vault after approving
@@ -234,13 +231,17 @@ def test_odds_and_ends_migration(
         new_strategy = strategist.deploy(
             contract_name,
             vault,
-            use_crv,
+            pid,
+            pool,
+            strategy_name,
         )
     else:
         new_strategy = strategist.deploy(
             contract_name,
             vault,
-            use_crv,
+            gauge,
+            pool,
+            strategy_name,
         )
     total_old = strategy.estimatedTotalAssets()
 

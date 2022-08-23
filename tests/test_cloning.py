@@ -30,7 +30,6 @@ def test_cloning(
     rewards_token,
     is_clonable,
     proxy,
-    use_crv,
 ):
 
     # skip this test if we don't clone
@@ -46,18 +45,22 @@ def test_cloning(
                 strategist,
                 rewards,
                 keeper,
-                use_crv,
+                pid,
+                pool,
+                strategy_name,
                 {"from": gov},
             )
             newStrategy = contract_name.at(tx.return_value)
         else:
             ## clone our strategy
-            tx = strategy.cloneCurveCrvCvxPairs(
+            tx = strategy.cloneCurveEURS(
                 vault,
                 strategist,
                 rewards,
                 keeper,
-                use_crv,
+                gauge,
+                pool,
+                strategy_name,
                 {"from": gov},
             )
             newStrategy = contract_name.at(tx.return_value)
@@ -70,7 +73,9 @@ def test_cloning(
                     strategist,
                     rewards,
                     keeper,
-                    use_crv,
+                    pid,
+                    pool,
+                    strategy_name,
                     {"from": gov},
                 )
 
@@ -80,7 +85,9 @@ def test_cloning(
                 strategist,
                 rewards,
                 keeper,
-                use_crv,
+                pid,
+                pool,
+                strategy_name,
                 {"from": gov},
             )
             newStrategy = contract_name.at(tx.return_value)
@@ -92,7 +99,9 @@ def test_cloning(
                     strategist,
                     rewards,
                     keeper,
-                    use_crv,
+                    pid,
+                    pool,
+                    strategy_name,
                     {"from": gov},
                 )
 
@@ -103,7 +112,9 @@ def test_cloning(
                     strategist,
                     rewards,
                     keeper,
-                    use_crv,
+                    pid,
+                    pool,
+                    strategy_name,
                     {"from": gov},
                 )
 
@@ -115,17 +126,21 @@ def test_cloning(
                     strategist,
                     rewards,
                     keeper,
-                    use_crv,
+                    gauge,
+                    pool,
+                    strategy_name,
                     {"from": gov},
                 )
 
             ## clone our strategy
-            tx = strategy.cloneCurveCrvCvxPairs(
+            tx = strategy.cloneCurveEURS(
                 vault,
                 strategist,
                 rewards,
                 keeper,
-                use_crv,
+                gauge,
+                pool,
+                strategy_name,
                 {"from": gov},
             )
             newStrategy = contract_name.at(tx.return_value)
@@ -137,18 +152,22 @@ def test_cloning(
                     strategist,
                     rewards,
                     keeper,
-                    use_crv,
+                    gauge,
+                    pool,
+                    strategy_name,
                     {"from": gov},
                 )
 
             ## shouldn't be able to clone a clone
             with brownie.reverts():
-                newStrategy.cloneCurveCrvCvxPairs(
+                newStrategy.cloneCurveEURS(
                     vault,
                     strategist,
                     rewards,
                     keeper,
-                    use_crv,
+                    gauge,
+                    pool,
+                    strategy_name,
                     {"from": gov},
                 )
 

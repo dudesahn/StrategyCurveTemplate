@@ -60,9 +60,9 @@ def test_update_to_zero_then_back(
     vault.revokeStrategy(strategy, {"from": gov})
     strategy.harvest({"from": gov})
 
-    # attach our new strategy and approve it on the proxy
+    # attach our new strategy and approve it on the proxy (special for stETH)
     vault.addStrategy(
-        newStrategy, startingDebtRatio, 0, 2 ** 256 - 1, 1_000, {"from": gov}
+        newStrategy, startingDebtRatio, 2 ** 256 - 1, 1_000, {"from": gov}
     )
 
     # if a curve strat, whitelist on our strategy proxy
@@ -267,9 +267,9 @@ def test_update_from_zero_to_off(
     vault.revokeStrategy(strategy, {"from": gov})
     strategy.harvest({"from": gov})
 
-    # attach our new strategy and approve it on the proxy
+    # attach our new strategy and approve it on the proxy (special for stETH)
     vault.addStrategy(
-        newStrategy, startingDebtRatio, 0, 2 ** 256 - 1, 1_000, {"from": gov}
+        newStrategy, startingDebtRatio, 2 ** 256 - 1, 1_000, {"from": gov}
     )
 
     # if a curve strat, whitelist on our strategy proxy
@@ -466,9 +466,9 @@ def test_change_rewards(
     vault.revokeStrategy(strategy, {"from": gov})
     strategy.harvest({"from": gov})
 
-    # attach our new strategy and approve it on the proxy
+    # attach our new strategy and approve it on the proxy (special for stETH)
     vault.addStrategy(
-        newStrategy, startingDebtRatio, 0, 2 ** 256 - 1, 1_000, {"from": gov}
+        newStrategy, startingDebtRatio, 2 ** 256 - 1, 1_000, {"from": gov}
     )
 
     # if a curve strat, whitelist on our strategy proxy

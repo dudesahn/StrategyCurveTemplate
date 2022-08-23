@@ -39,79 +39,59 @@ def tests_using_tenderly():
 # use this to set what chain we use. 1 for ETH, 250 for fantom
 chain_used = 1
 
-# for this strategy, set this if we want to test CVX or CRV-ETH LPs. shouldn't need to touch anything else
-@pytest.fixture(scope="session")
-def use_crv():
-    use_crv = True
-    yield use_crv
-
 
 # for these LPs, we only use this to generate the correct want token. 61 CRV-ETH, 64 CVX-ETH
 @pytest.fixture(scope="session")
-def pid(use_crv):
-    if use_crv:
-        pid = 61
-    else:
-        pid = 64
+def pid():
+    pid = 25
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
-def amount(use_crv):
-    if use_crv:
-        amount = 4_000e18
-    else:
-        amount = 600e18
+def amount():
+    amount = 100e18
     yield amount
 
 
 @pytest.fixture(scope="session")
-def whale(accounts, use_crv):
+def whale(accounts, token, amount):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    if use_crv:
-        whale = accounts.at(
-            "0x28a55C4b4f9615FDE3CDAdDf6cc01FcF2E38A6b0", force=True
-        )  # 0x28a55C4b4f9615FDE3CDAdDf6cc01FcF2E38A6b0 for CRV-ETH (9900 total)
-    else:
-        whale = accounts.at(
-            "0xa0f75491720835b36edC92D06DDc468D201e9b73", force=True
-        )  # 0xa0f75491720835b36edC92D06DDc468D201e9b73 for cvx-eth (~1300 total)
+    whale = accounts.at("0x43378368D84D4bA00D1C8E97EC2E6016A82fC062", force=True)
+    if token.balanceOf(whale) < 2 * amount:
+        print("Token address:", token.address, "Whale:", whale)
+        raise ValueError(
+            "Our whale needs more funds. Find another whale or reduce your amount variable."
+        )
     yield whale
 
 
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
-def vault_address(use_crv):
-    if use_crv:
-        vault_address = "0x6A5468752f8DB94134B6508dAbAC54D3b45efCE6"
-    else:
-        vault_address = "0x1635b506a88fBF428465Ad65d00e8d6B6E5846C3"
+def vault_address():
+    vault_address = "0xdCD90C7f6324cfa40d7169ef80b12031770B4325"
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
-def strategy_name(use_crv):
-    if use_crv:
-        strategy_name = "StrategyConvexCRV-ETH"
-    else:
-        strategy_name = "StrategyConvexCVX-ETH"
+def strategy_name():
+    strategy_name = "StrategyCurvestETH"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveCrvCvxPairsClonable):
-    contract_name = StrategyCurveCrvCvxPairsClonable
+def contract_name(StrategyCurvestETH):
+    contract_name = StrategyCurvestETH
     yield contract_name
 
 
 # this is the address of our rewards token
 @pytest.fixture(scope="session")
-def rewards_token():  # PNT (pBTC) 0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD
-    yield Contract("0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD")
+def rewards_token():  # LDO
+    yield Contract("0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32")
 
 
 # whether or not we should try a test donation of our rewards token to make sure the strategy handles them correctly
@@ -151,21 +131,21 @@ def old_pool():
 # whether or not a strategy is clonable
 @pytest.fixture(scope="session")
 def is_clonable():
-    is_clonable = True
+    is_clonable = False
     yield is_clonable
 
 
 # whether or not a strategy can possibly have rewards
 @pytest.fixture(scope="session")
 def rewards_template():
-    rewards_template = False
+    rewards_template = True
     yield rewards_template
 
 
 # this is whether our pool has extra rewards tokens or not, use this to confirm that our strategy set everything up correctly.
 @pytest.fixture(scope="session")
 def has_rewards():
-    has_rewards = False
+    has_rewards = True
     yield has_rewards
 
 
@@ -207,7 +187,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 6
+    hours_to_sleep = 2
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time
@@ -386,14 +366,15 @@ if chain_used == 1:  # mainnet
         rewards_token,
         has_rewards,
         vault_address,
-        use_crv,
     ):
         if is_convex:
             # make sure to include all constructor parameters needed here
             strategy = strategist.deploy(
                 contract_name,
                 vault,
-                use_crv,
+                pid,
+                pool,
+                strategy_name,
             )
             print("\nConvex strategy")
         else:
@@ -401,7 +382,9 @@ if chain_used == 1:  # mainnet
             strategy = strategist.deploy(
                 contract_name,
                 vault,
-                use_crv,
+                gauge,
+                pool,
+                strategy_name,
             )
             print("\nCurve strategy")
 
@@ -499,6 +482,13 @@ if chain_used == 1:  # mainnet
         gasOracle.setMaxAcceptableBaseFee(2000 * 1e9, {"from": strategist_ms})
         strategy.setHealthCheck(healthCheck, {"from": gov})
 
+        # add rewards token if needed. Double-check if we specify router here (sBTC new and old clonable only)
+        if has_rewards:
+            if is_convex:
+                strategy.updateRewards(True, 0, {"from": gov})
+            else:
+                strategy.updateRewards(True, rewards_token, {"from": gov})
+
         # set up custom params and setters
         strategy.setMaxReportDelay(86400 * 21, {"from": gov})
 
@@ -516,13 +506,6 @@ if chain_used == 1:  # mainnet
         if vault_address != ZERO_ADDRESS and other_strat != ZERO_ADDRESS:
             print("Other strat assets:", other_strat.estimatedTotalAssets() / 1e18)
         print("Main strat assets:", strategy.estimatedTotalAssets() / 1e18)
-
-        # add rewards token if needed. Double-check if we specify router here (sBTC new and old clonable only)
-        if has_rewards:
-            if is_convex:
-                strategy.updateRewards(True, 0, {"from": gov})
-            else:
-                strategy.updateRewards(True, rewards_token, {"from": gov})
 
         yield strategy
 
