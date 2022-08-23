@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 95  # CAD 79, STG 95
+    pid = 7
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 10_000e18  # 10k for STG-USDC
+    amount = 6e18  # has over 12
     yield amount
 
 
@@ -58,9 +58,7 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at(
-        "0xeCb456EA5365865EbAb8a2661B0c503410e9B347", force=True
-    )  # 0x26f539A0fE189A7f228D7982BF10Bc294FA9070c for CAD-USDC (270k total), 0xeCb456EA5365865EbAb8a2661B0c503410e9B347 for STG-USDC
+    whale = accounts.at("0x5Ec3f59397498ceE61d71399D15458ECc171b783", force=True)
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -71,22 +69,21 @@ def whale(accounts, amount, token):
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x341bb10D8f5947f3066502DC8125d9b8949FD3D6"
-    # STG-USDC 0x341bb10D8f5947f3066502DC8125d9b8949FD3D6, others ZERO
+    vault_address = "0x8414Db07a7F743dEbaFb402070AB01a4E0d2E45e"
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurveSTG-USDC"
+    strategy_name = "StrategyCurvesBTC"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveUsdcPairsClonable):
-    contract_name = StrategyCurveUsdcPairsClonable
+def contract_name(StrategyCurvesBTC):
+    contract_name = StrategyCurvesBTC
     yield contract_name
 
 
@@ -96,18 +93,44 @@ def rewards_token():
     yield Contract("0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD")
 
 
+# whether or not we should try a test donation of our rewards token to make sure the strategy handles them correctly
+# if you want to bother with whale and amount below, this needs to be true
+@pytest.fixture(scope="session")
+def test_donation():
+    test_donation = True
+    yield test_donation
+
+
+# sUSD gauge uses blocks instead of seconds to determine rewards, so this needs to be true for that to test if we're earning
+@pytest.fixture(scope="session")
+def try_blocks():
+    try_blocks = False
+    yield try_blocks
+
+
+@pytest.fixture(scope="session")
+def rewards_whale(accounts):
+    # PNT whale: 0xF977814e90dA44bFA03b6295A0616a897441aceC, >13m PNT
+    yield accounts.at("0xF977814e90dA44bFA03b6295A0616a897441aceC", force=True)
+
+
+@pytest.fixture(scope="session")
+def rewards_amount():
+    rewards_amount = 100_000e18
+    yield rewards_amount
+
+
 # curve deposit pool for old metapools and crypto pools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0x3211C6cBeF1429da3D0d58494938299C92Ad5860"
-    # 0xE07BDe9Eb53DEFfa979daE36882014B758111a78 for CAD-USDC, 0x3211C6cBeF1429da3D0d58494938299C92Ad5860 for STG-USDC
+    old_pool = ZERO_ADDRESS
     yield old_pool
 
 
 # whether or not a strategy is clonable
 @pytest.fixture(scope="session")
 def is_clonable():
-    is_clonable = True
+    is_clonable = False
     yield is_clonable
 
 
@@ -135,7 +158,7 @@ def is_convex():
 # if our curve gauge deposits aren't tokenized (older pools), we can't as easily do some tests and we skip them
 @pytest.fixture(scope="session")
 def gauge_is_not_tokenized():
-    gauge_is_not_tokenized = False
+    gauge_is_not_tokenized = True
     yield gauge_is_not_tokenized
 
 
@@ -210,6 +233,10 @@ if chain_used == 1:  # mainnet
         yield Contract("0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5")
 
     @pytest.fixture(scope="session")
+    def curve_cryptoswap_registry():
+        yield Contract("0x4AacF35761d06Aa7142B9326612A42A2b9170E33")
+
+    @pytest.fixture(scope="session")
     def healthCheck():
         yield Contract("0xDDCea799fF1699e98EDF118e0629A974Df7DF012")
 
@@ -238,16 +265,24 @@ if chain_used == 1:  # mainnet
     # gauge for the curve pool
     @pytest.fixture(scope="session")
     def gauge(pid, booster):
-        # this should be the address of the convex deposit token
         gauge = booster.poolInfo(pid)[2]
         yield Contract(gauge)
 
     # curve deposit pool
     @pytest.fixture(scope="session")
-    def pool(token, curve_registry, old_pool):
+    def pool(token, curve_registry, curve_cryptoswap_registry, old_pool):
         if old_pool == ZERO_ADDRESS:
             if curve_registry.get_pool_from_lp_token(token) == ZERO_ADDRESS:
-                poolContract = token
+                if (
+                    curve_cryptoswap_registry.get_pool_from_lp_token(token)
+                    == ZERO_ADDRESS
+                ):
+                    poolContract = token
+                else:
+                    poolAddress = curve_cryptoswap_registry.get_pool_from_lp_token(
+                        token
+                    )
+                    poolContract = Contract(poolAddress)
             else:
                 poolAddress = curve_registry.get_pool_from_lp_token(token)
                 poolContract = Contract(poolAddress)
@@ -446,6 +481,13 @@ if chain_used == 1:  # mainnet
         gasOracle.setMaxAcceptableBaseFee(2000 * 1e9, {"from": strategist_ms})
         strategy.setHealthCheck(healthCheck, {"from": gov})
 
+        # add rewards token if needed. Double-check if we specify router here (sBTC new and old clonable only)
+        if has_rewards:
+            if is_convex:
+                strategy.updateRewards(True, 0, {"from": gov})
+            else:
+                strategy.updateRewards(True, rewards_token, {"from": gov})
+
         # set up custom params and setters
         strategy.setMaxReportDelay(86400 * 21, {"from": gov})
 
@@ -463,13 +505,6 @@ if chain_used == 1:  # mainnet
         if vault_address != ZERO_ADDRESS and other_strat != ZERO_ADDRESS:
             print("Other strat assets:", other_strat.estimatedTotalAssets() / 1e18)
         print("Main strat assets:", strategy.estimatedTotalAssets() / 1e18)
-
-        # add rewards token if needed. Double-check if we specify router here (sBTC clonable does, 3Crv doesn't)
-        if has_rewards:
-            if is_convex:
-                strategy.updateRewards(True, 0, {"from": gov})
-            else:
-                strategy.updateRewards(True, rewards_token, {"from": gov})
 
         yield strategy
 
