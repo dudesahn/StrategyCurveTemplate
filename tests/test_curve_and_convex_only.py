@@ -78,9 +78,9 @@ def test_update_to_zero_then_back(
 
     # setup our rewards on our new stategy
     if is_convex:
-        newStrategy.updateRewards(True, 0, {"from": gov})
+        newStrategy.updateRewards(True, 0, False, {"from": gov})
     else:
-        newStrategy.updateRewards(True, rewards_token, {"from": gov})
+        newStrategy.updateRewards(True, rewards_token, False, {"from": gov})
 
     ## deposit to the vault after approving; this is basically just our simple_harvest test
     before_pps = vault.pricePerShare()
@@ -120,20 +120,20 @@ def test_update_to_zero_then_back(
     _rewards_token = newStrategy.rewardsToken()
     rewards_token = Contract(_rewards_token)
     assert newStrategy.hasRewards() == True
-    assert rewards_token.allowance(newStrategy, sushi_router) > 0
+    assert rewards_token.allowance(newStrategy, newStrategy.router()) > 0
 
     # turn off our rewards
     if is_convex:
-        newStrategy.updateRewards(False, 0, {"from": gov})
+        newStrategy.updateRewards(False, 0, False, {"from": gov})
     else:
-        newStrategy.updateRewards(False, rewards_token, {"from": gov})
+        newStrategy.updateRewards(False, rewards_token, False, {"from": gov})
 
     assert newStrategy.rewardsToken() == ZERO_ADDRESS
     assert newStrategy.hasRewards() == False
     if (
         has_rewards
     ):  # if we have a separate reward token (not CVX) check that our allowance is zero
-        assert rewards_token.allowance(newStrategy, sushi_router) == 0
+        assert rewards_token.allowance(newStrategy, newStrategy.router()) == 0
 
     # track our new pps and assets
     new_pps = vault.pricePerShare()
@@ -159,14 +159,14 @@ def test_update_to_zero_then_back(
 
     # add our rewards token, harvest to take the profit from it. this should be extra high yield from this harvest
     if is_convex:
-        newStrategy.updateRewards(True, 0, {"from": gov})
+        newStrategy.updateRewards(True, 0, False, {"from": gov})
     else:
-        newStrategy.updateRewards(True, rewards_token, {"from": gov})
+        newStrategy.updateRewards(True, rewards_token, False, {"from": gov})
 
     # assert that we set things up correctly
     assert newStrategy.rewardsToken() == _rewards_token
     assert newStrategy.hasRewards() == True
-    assert rewards_token.allowance(newStrategy, sushi_router) > 0
+    assert rewards_token.allowance(newStrategy, newStrategy.router()) > 0
 
     # track our new pps and assets
     new_pps = vault.pricePerShare()
@@ -285,9 +285,9 @@ def test_update_from_zero_to_off(
 
     # setup our rewards on our new stategy
     if is_convex:
-        newStrategy.updateRewards(True, 0, {"from": gov})
+        newStrategy.updateRewards(True, 0, False, {"from": gov})
     else:
-        newStrategy.updateRewards(True, rewards_token, {"from": gov})
+        newStrategy.updateRewards(True, rewards_token, False, {"from": gov})
 
     ## deposit to the vault after approving; this is basically just our simple_harvest test
     before_pps = vault.pricePerShare()
@@ -328,20 +328,20 @@ def test_update_from_zero_to_off(
     _rewards_token = newStrategy.rewardsToken()
     rewards_token = Contract(_rewards_token)
     assert newStrategy.hasRewards() == True
-    assert rewards_token.allowance(newStrategy, sushi_router) > 0
+    assert rewards_token.allowance(newStrategy, newStrategy.router()) > 0
 
     # turn off our rewards
     # setup our rewards on our new stategy
     if is_convex:
-        newStrategy.updateRewards(False, 0, {"from": gov})
+        newStrategy.updateRewards(False, 0, False, {"from": gov})
     else:
-        newStrategy.updateRewards(False, rewards_token, {"from": gov})
+        newStrategy.updateRewards(False, rewards_token, False, {"from": gov})
     assert newStrategy.rewardsToken() == ZERO_ADDRESS
     assert newStrategy.hasRewards() == False
     if (
         has_rewards
     ):  # if we have a separate reward token (not CVX) check that our allowance is zero
-        assert rewards_token.allowance(newStrategy, sushi_router) == 0
+        assert rewards_token.allowance(newStrategy, newStrategy.router()) == 0
 
     # track our new pps and assets
     new_pps = vault.pricePerShare()
@@ -367,15 +367,16 @@ def test_update_from_zero_to_off(
 
     # try turning off our rewards again
     if is_convex:
+        newStrategy.updateRewards(False, 0, False, {"from": gov})
         newStrategy.updateRewards(False, 0, {"from": gov})
     else:
-        newStrategy.updateRewards(False, rewards_token, {"from": gov})
+        newStrategy.updateRewards(False, rewards_token, False, {"from": gov})
     assert newStrategy.rewardsToken() == ZERO_ADDRESS
     assert newStrategy.hasRewards() == False
     if (
         has_rewards
     ):  # if we have a separate reward token (not CVX) check that our allowance is zero
-        assert rewards_token.allowance(newStrategy, sushi_router) == 0
+        assert rewards_token.allowance(newStrategy, newStrategy.router()) == 0
 
     # track our new pps and assets
     old_assets_dai = vault.totalAssets()
@@ -476,9 +477,9 @@ def test_change_rewards(
 
     # setup our rewards on our new stategy
     if is_convex:
-        newStrategy.updateRewards(True, 0, {"from": gov})
+        newStrategy.updateRewards(True, 0, False, {"from": gov})
     else:
-        newStrategy.updateRewards(True, rewards_token, {"from": gov})
+        newStrategy.updateRewards(True, rewards_token, False, {"from": gov})
 
     ## deposit to the vault after approving; this is basically just our simple_harvest test
     before_pps = vault.pricePerShare()
@@ -634,11 +635,11 @@ def test_more_rewards_stuff(
 
     # we do this twice to hit both branches of the if statement
     if is_convex:
-        strategy.updateRewards(False, 0, {"from": gov})
-        strategy.updateRewards(False, 0, {"from": gov})
+        strategy.updateRewards(False, 0, False, {"from": gov})
+        strategy.updateRewards(False, 0, False, {"from": gov})
     else:
-        strategy.updateRewards(False, rewards_token, {"from": gov})
-        strategy.updateRewards(False, rewards_token, {"from": gov})
+        strategy.updateRewards(False, rewards_token, False, {"from": gov})
+        strategy.updateRewards(False, rewards_token, False, {"from": gov})
 
     # sleep to get some profit
     chain.sleep(sleep_time)
@@ -647,11 +648,11 @@ def test_more_rewards_stuff(
 
     # we do this twice to hit both branches of the if statement
     if is_convex:
-        strategy.updateRewards(True, 0, {"from": gov})
-        strategy.updateRewards(True, 0, {"from": gov})
+        strategy.updateRewards(True, 0, False, {"from": gov})
+        strategy.updateRewards(True, 0, False, {"from": gov})
     else:
-        strategy.updateRewards(True, rewards_token, {"from": gov})
-        strategy.updateRewards(True, rewards_token, {"from": gov})
+        strategy.updateRewards(True, rewards_token, False, {"from": gov})
+        strategy.updateRewards(True, rewards_token, False, {"from": gov})
 
     # sleep to get some profit
     chain.sleep(sleep_time)
@@ -671,11 +672,11 @@ def test_more_rewards_stuff(
 
     # we do this twice to hit both branches of the if statement
     if is_convex:
-        strategy.updateRewards(False, 0, {"from": gov})
-        strategy.updateRewards(False, 0, {"from": gov})
+        strategy.updateRewards(False, 0, False, {"from": gov})
+        strategy.updateRewards(False, 0, False, {"from": gov})
     else:
-        strategy.updateRewards(False, rewards_token, {"from": gov})
-        strategy.updateRewards(False, rewards_token, {"from": gov})
+        strategy.updateRewards(False, rewards_token, False, {"from": gov})
+        strategy.updateRewards(False, rewards_token, False, {"from": gov})
 
     # sleep to get some profit
     chain.sleep(sleep_time)
@@ -684,11 +685,11 @@ def test_more_rewards_stuff(
 
     # we do this twice to hit both branches of the if statement
     if is_convex:
-        strategy.updateRewards(True, 0, {"from": gov})
-        strategy.updateRewards(True, 0, {"from": gov})
+        strategy.updateRewards(True, 0, False, {"from": gov})
+        strategy.updateRewards(True, 0, False, {"from": gov})
     else:
-        strategy.updateRewards(True, rewards_token, {"from": gov})
-        strategy.updateRewards(True, rewards_token, {"from": gov})
+        strategy.updateRewards(True, rewards_token, False, {"from": gov})
+        strategy.updateRewards(True, rewards_token, False, {"from": gov})
 
     # sleep to get some profit
     chain.sleep(sleep_time)

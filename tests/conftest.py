@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 95  # CAD 79, STG 95
+    pid = 20  # tBTC 16, oBTC 20. tBTC not working well currently since yield is so low
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 10_000e18  # 10k for STG-USDC
+    amount = 0.25e18  # tBTC has >10, oBTC has 0.5
     yield amount
 
 
@@ -58,9 +58,8 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at(
-        "0xeCb456EA5365865EbAb8a2661B0c503410e9B347", force=True
-    )  # 0x26f539A0fE189A7f228D7982BF10Bc294FA9070c for CAD-USDC (270k total), 0xeCb456EA5365865EbAb8a2661B0c503410e9B347 for STG-USDC
+    # tBTC 0x3d24D77bEC08549D7Ea86c4e9937204C11E153f1, oBTC 0x806ed321E5D8255Ff1478b9171bDC97ae09b2d37
+    whale = accounts.at("0x806ed321E5D8255Ff1478b9171bDC97ae09b2d37", force=True)
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -71,36 +70,38 @@ def whale(accounts, amount, token):
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x341bb10D8f5947f3066502DC8125d9b8949FD3D6"
-    # STG-USDC 0x341bb10D8f5947f3066502DC8125d9b8949FD3D6, others ZERO
+    vault_address = "0xe9Dc63083c464d6EDcCFf23444fF3CFc6886f6FB"
+    # tBTC 0x23D3D0f1c697247d5e0a9efB37d8b0ED0C464f7f
+    # oBTC 0xe9Dc63083c464d6EDcCFf23444fF3CFc6886f6FB
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurveSTG-USDC"
+    strategy_name = "StrategyCurveoBTC"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurveUsdcPairsClonable):
-    contract_name = StrategyCurveUsdcPairsClonable
+def contract_name(StrategyCurvesBTCMetapoolsOldClonable):
+    contract_name = StrategyCurvesBTCMetapoolsOldClonable
     yield contract_name
 
 
 # this is the address of our rewards token
 @pytest.fixture(scope="session")
-def rewards_token():
+def rewards_token():  # oBTC has one but don't worry about it for now
     yield Contract("0x89Ab32156e46F46D02ade3FEcbe5Fc4243B9AAeD")
 
 
-# curve deposit pool for old metapools and crypto pools, set to ZERO_ADDRESS otherwise
+# curve deposit pool for old metapools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0x3211C6cBeF1429da3D0d58494938299C92Ad5860"
-    # 0xE07BDe9Eb53DEFfa979daE36882014B758111a78 for CAD-USDC, 0x3211C6cBeF1429da3D0d58494938299C92Ad5860 for STG-USDC
+    old_pool = "0xd5BCf53e2C81e1991570f33Fa881c49EEa570C8D"
+    # tBTC 0xaa82ca713D94bBA7A89CEAB55314F9EfFEdDc78c
+    # oBTC 0xd5BCf53e2C81e1991570f33Fa881c49EEa570C8D
     yield old_pool
 
 
@@ -163,7 +164,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 48
+    hours_to_sleep = 24  # oBTC 6 hours
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time
@@ -466,10 +467,12 @@ if chain_used == 1:  # mainnet
 
         # add rewards token if needed. Double-check if we specify router here (sBTC clonable does, 3Crv doesn't)
         if has_rewards:
-            if is_convex:
-                strategy.updateRewards(True, 0, {"from": gov})
+            if (
+                is_convex
+            ):  # pBTC is the only BTC factory token with rewards, and it needs UniV2
+                strategy.updateRewards(True, 0, False, {"from": gov})
             else:
-                strategy.updateRewards(True, rewards_token, {"from": gov})
+                strategy.updateRewards(True, rewards_token, False, {"from": gov})
 
         yield strategy
 

@@ -53,7 +53,7 @@ def test_cloning(
             newStrategy = contract_name.at(tx.return_value)
         else:
             ## clone our strategy
-            tx = strategy.cloneCurveUsdcPairs(
+            tx = strategy.cloneCurveSBTCOld(
                 vault,
                 strategist,
                 rewards,
@@ -133,7 +133,7 @@ def test_cloning(
                 )
 
             ## clone our strategy
-            tx = strategy.cloneCurveUsdcPairs(
+            tx = strategy.cloneCurveSBTCOld(
                 vault,
                 strategist,
                 rewards,
@@ -160,7 +160,7 @@ def test_cloning(
 
             ## shouldn't be able to clone a clone
             with brownie.reverts():
-                newStrategy.cloneCurveUsdcPairs(
+                newStrategy.cloneCurveSBTCOld(
                     vault,
                     strategist,
                     rewards,
