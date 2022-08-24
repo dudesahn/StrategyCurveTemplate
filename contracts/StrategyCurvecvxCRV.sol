@@ -167,22 +167,12 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurve3Crypto is StrategyCurveBase {
+contract StrategyCurvecvxCRV is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
     // Curve stuff
     ICurveFi public curve; /// @notice This is our curve pool specific to this vault
-
-    ICurveFi internal constant crveth =
-        ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
-
-    // we use these to deposit to our curve pool
-    address internal constant uniswapv3 =
-        0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    IERC20 internal constant wbtc =
-        IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
-    uint24 public uniWbtcFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -201,8 +191,6 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
 
         // these are our standard approvals. want = Curve LP token
         want.approve(address(proxy), type(uint256).max);
-        crv.approve(address(crveth), type(uint256).max);
-        weth.approve(uniswapv3, type(uint256).max);
 
         // this is the pool specific to this vault
         curve = ICurveFi(_curvePool);
@@ -217,10 +205,7 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        wbtc.approve(address(curve), type(uint256).max);
-
-        // set our uniswap pool fees
-        uniWbtcFee = 500;
+        crv.approve(address(curve), type(uint256).max);
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -252,13 +237,9 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
             }
         }
 
-        // do this even if we don't have any CRV, in case we have WETH
-        _sell(_crvBalance);
-
-        // deposit our balance to Curve if we have any
-        uint256 _wbtcBalance = wbtc.balanceOf(address(this));
-        if (_wbtcBalance > 0) {
-            curve.add_liquidity([0, _wbtcBalance, 0], 0);
+        // deposit our CRV to Curve
+        if (_crvBalance > 0) {
+            curve.add_liquidity([_crvBalance, 0], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -303,32 +284,6 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
             proxy.withdraw(gauge, address(want), _stakedBal);
         }
         crv.safeTransfer(_newStrategy, crv.balanceOf(address(this)));
-    }
-
-    // Sells our harvested CRV into ETH then WBTC
-    function _sell(uint256 _crvAmount) internal {
-        if (_crvAmount > 1e17) {
-            // don't want to swap dust or we might revert
-            crveth.exchange(1, 0, _crvAmount, 0, false);
-        }
-
-        uint256 _wethBalance = weth.balanceOf(address(this));
-        if (_wethBalance > 1e15) {
-            // don't want to swap dust or we might revert
-            IUniV3(uniswapv3).exactInput(
-                IUniV3.ExactInputParams(
-                    abi.encodePacked(
-                        address(weth),
-                        uint24(uniWbtcFee),
-                        address(wbtc)
-                    ),
-                    address(this),
-                    block.timestamp,
-                    _wethBalance,
-                    uint256(1)
-                )
-            );
-        }
     }
 
     /* ========== KEEP3RS ========== */
@@ -399,10 +354,5 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
         onlyVaultManagers
     {
         creditThreshold = _creditThreshold;
-    }
-
-    /// @notice Set the fee pool we'd like to swap through on UniV3 (1% = 10_000)
-    function setUniFees(uint24 _wbtcFee) external onlyVaultManagers {
-        uniWbtcFee = _wbtcFee;
     }
 }
