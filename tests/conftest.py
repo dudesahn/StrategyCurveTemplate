@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 7
+    pid = 38
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 6e18  # has over 12
+    amount = 200e18
     yield amount
 
 
@@ -58,7 +58,9 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0x5Ec3f59397498ceE61d71399D15458ECc171b783", force=True)
+    whale = accounts.at(
+        "0x916AB31C6226E44B6256598a677CCEfFa385cced", force=True
+    )  # 0x916AB31C6226E44B6256598a677CCEfFa385cced for 3Crypto (660 total)
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -69,21 +71,21 @@ def whale(accounts, amount, token):
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x8414Db07a7F743dEbaFb402070AB01a4E0d2E45e"
+    vault_address = "0xE537B5cc158EB71037D4125BDD7538421981E6AA"
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurvesBTC"
+    strategy_name = "StrategyCurve3Crypto"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurvesBTC):
-    contract_name = StrategyCurvesBTC
+def contract_name(StrategyCurve3Crypto):
+    contract_name = StrategyCurve3Crypto
     yield contract_name
 
 
@@ -97,7 +99,7 @@ def rewards_token():
 # if you want to bother with whale and amount below, this needs to be true
 @pytest.fixture(scope="session")
 def test_donation():
-    test_donation = True
+    test_donation = False
     yield test_donation
 
 
@@ -158,7 +160,7 @@ def is_convex():
 # if our curve gauge deposits aren't tokenized (older pools), we can't as easily do some tests and we skip them
 @pytest.fixture(scope="session")
 def gauge_is_not_tokenized():
-    gauge_is_not_tokenized = True
+    gauge_is_not_tokenized = False
     yield gauge_is_not_tokenized
 
 
