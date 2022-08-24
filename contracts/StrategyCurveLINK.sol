@@ -167,7 +167,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurvesAave is StrategyCurveBase {
+contract StrategyCurveLINK is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -180,9 +180,9 @@ contract StrategyCurvesAave is StrategyCurveBase {
     // we use these to deposit to our curve pool
     address internal constant uniswapv3 =
         0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    IERC20 internal constant dai =
-        IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-    uint24 public uniStableFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
+    IERC20 internal constant link =
+        IERC20(0x514910771AF9Ca656af840dff83E8264EcF986CA);
+    uint24 public uniLinkFee; // this is equal to 0.3%, can change this later if a different path becomes more optimal
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -196,7 +196,7 @@ contract StrategyCurvesAave is StrategyCurveBase {
         maxReportDelay = 100 days; // 100 days in seconds
         minReportDelay = 21 days; // 21 days in seconds
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
-        creditThreshold = 5e5 * 1e18;
+        creditThreshold = 1e5 * 1e18;
         keepCRV = 1000; // default of 10%
 
         // these are our standard approvals. want = Curve LP token
@@ -217,10 +217,10 @@ contract StrategyCurvesAave is StrategyCurveBase {
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        dai.approve(address(curve), type(uint256).max);
+        link.approve(address(curve), type(uint256).max);
 
         // set our uniswap pool fees
-        uniStableFee = 500;
+        uniLinkFee = 3000;
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -256,11 +256,11 @@ contract StrategyCurvesAave is StrategyCurveBase {
         _sell(_crvBalance);
 
         // check for balances of tokens to deposit
-        uint256 _daiBalance = dai.balanceOf(address(this));
+        uint256 _linkBalance = link.balanceOf(address(this));
 
         // deposit our balance to Curve if we have any
-        if (_daiBalance > 0) {
-            curve.add_liquidity([_daiBalance, 0], 0, true);
+        if (_linkBalance > 0) {
+            curve.add_liquidity([_linkBalance, 0], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -321,8 +321,8 @@ contract StrategyCurvesAave is StrategyCurveBase {
                 IUniV3.ExactInputParams(
                     abi.encodePacked(
                         address(weth),
-                        uint24(uniStableFee),
-                        address(dai)
+                        uint24(uniLinkFee),
+                        address(link)
                     ),
                     address(this),
                     block.timestamp,
@@ -404,7 +404,7 @@ contract StrategyCurvesAave is StrategyCurveBase {
     }
 
     /// @notice Set the fee pool we'd like to swap through on UniV3 (1% = 10_000)
-    function setUniFees(uint24 _stableFee) external onlyVaultManagers {
-        uniStableFee = _stableFee;
+    function setUniFees(uint24 _linkFee) external onlyVaultManagers {
+        uniLinkFee = _linkFee;
     }
 }

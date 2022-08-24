@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 26
+    pid = 30
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 4800e18  # has over 9.6k
+    amount = 10_000e18  # has over 20k
     yield amount
 
 
@@ -58,7 +58,7 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at("0xb617bF66b848D301C4fd2db586a244A5C07e2EC0", force=True)
+    whale = accounts.at("0x96Ea6AF74Af09522fCB4c28C269C26F59a31ced6", force=True)
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -69,21 +69,21 @@ def whale(accounts, amount, token):
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0xb4D1Be44BfF40ad6e506edf43156577a3f8672eC"
+    vault_address = "0xf2db9a7c0ACd427A680D640F02d90f6186E71725"
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurvesAave"
+    strategy_name = "StrategyCurveLINK"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurvesAave):
-    contract_name = StrategyCurvesAave
+def contract_name(StrategyCurveLINK):
+    contract_name = StrategyCurveLINK
     yield contract_name
 
 
