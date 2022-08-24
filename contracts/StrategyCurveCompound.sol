@@ -199,7 +199,7 @@ contract StrategyCurveCompound is StrategyCurveBase {
         maxReportDelay = 100 days; // 100 days in seconds
         minReportDelay = 21 days; // 21 days in seconds
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
-        creditThreshold = 400 * 1e18;
+        creditThreshold = 5e5 * 1e18;
         keepCRV = 1000; // default of 10%
 
         // these are our standard approvals. want = Curve LP token
