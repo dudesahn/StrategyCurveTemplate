@@ -167,7 +167,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurveCompound is StrategyCurveBase {
+contract StrategyCurvesAave is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -178,11 +178,8 @@ contract StrategyCurveCompound is StrategyCurveBase {
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
 
     // we use these to deposit to our curve pool
-    address public targetStable;
     address internal constant uniswapv3 =
         0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    IERC20 internal constant usdc =
-        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     IERC20 internal constant dai =
         IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     uint24 public uniStableFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
@@ -199,7 +196,7 @@ contract StrategyCurveCompound is StrategyCurveBase {
         maxReportDelay = 100 days; // 100 days in seconds
         minReportDelay = 21 days; // 21 days in seconds
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; // health.ychad.eth
-        creditThreshold = 400 * 1e18;
+        creditThreshold = 5e5 * 1e18;
         keepCRV = 1000; // default of 10%
 
         // these are our standard approvals. want = Curve LP token
@@ -221,10 +218,6 @@ contract StrategyCurveCompound is StrategyCurveBase {
 
         // these are our approvals and path specific to this contract
         dai.approve(address(curve), type(uint256).max);
-        usdc.approve(address(curve), type(uint256).max);
-
-        // start with usdt
-        targetStable = address(dai);
 
         // set our uniswap pool fees
         uniStableFee = 500;
@@ -264,11 +257,10 @@ contract StrategyCurveCompound is StrategyCurveBase {
 
         // check for balances of tokens to deposit
         uint256 _daiBalance = dai.balanceOf(address(this));
-        uint256 _usdcBalance = usdc.balanceOf(address(this));
 
         // deposit our balance to Curve if we have any
-        if (_daiBalance > 0 || _usdcBalance > 0) {
-            curve.add_liquidity([_daiBalance, _usdcBalance], 0);
+        if (_daiBalance > 0) {
+            curve.add_liquidity([_daiBalance, 0], 0, true);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -330,7 +322,7 @@ contract StrategyCurveCompound is StrategyCurveBase {
                     abi.encodePacked(
                         address(weth),
                         uint24(uniStableFee),
-                        address(targetStable)
+                        address(dai)
                     ),
                     address(this),
                     block.timestamp,
@@ -402,17 +394,6 @@ contract StrategyCurveCompound is StrategyCurveBase {
     /* ========== SETTERS ========== */
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
-
-    /// @notice Set optimal token to sell harvested funds for depositing to Curve.
-    function setOptimal(uint256 _optimal) external onlyVaultManagers {
-        if (_optimal == 0) {
-            targetStable = address(dai);
-        } else if (_optimal == 1) {
-            targetStable = address(usdc);
-        } else {
-            revert("incorrect token");
-        }
-    }
 
     /// @notice Credit threshold is in want token, and will trigger a harvest if strategy credit is above this amount.
     function setCreditThreshold(uint256 _creditThreshold)
