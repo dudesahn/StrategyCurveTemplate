@@ -43,14 +43,14 @@ chain_used = 1
 # If testing a Convex strategy, set this equal to your PID
 @pytest.fixture(scope="session")
 def pid():
-    pid = 38
+    pid = 0
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 200e18
+    amount = 150_000e18  # has over 300k
     yield amount
 
 
@@ -58,9 +58,7 @@ def amount():
 def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
-    whale = accounts.at(
-        "0x916AB31C6226E44B6256598a677CCEfFa385cced", force=True
-    )  # 0x916AB31C6226E44B6256598a677CCEfFa385cced for 3Crypto (660 total)
+    whale = accounts.at("0x629c759D1E83eFbF63d84eb3868B564d9521C129", force=True)
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -71,21 +69,21 @@ def whale(accounts, amount, token):
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0xE537B5cc158EB71037D4125BDD7538421981E6AA"
+    vault_address = "0xD6Ea40597Be05c201845c0bFd2e96A60bACde267"
     yield vault_address
 
 
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurve3Crypto"
+    strategy_name = "StrategyCurveCompound"
     yield strategy_name
 
 
 # this is the name of our strategy in the .sol file
 @pytest.fixture(scope="session")
-def contract_name(StrategyCurve3Crypto):
-    contract_name = StrategyCurve3Crypto
+def contract_name(StrategyCurveCompound):
+    contract_name = StrategyCurveCompound
     yield contract_name
 
 
@@ -122,10 +120,10 @@ def rewards_amount():
     yield rewards_amount
 
 
-# curve deposit pool for old metapools and crypto pools, set to ZERO_ADDRESS otherwise
+# curve deposit pool for old pools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = ZERO_ADDRESS
+    old_pool = "0xeB21209ae4C2c9FF2a86ACA31E123764A3B6Bc06"
     yield old_pool
 
 
@@ -160,7 +158,7 @@ def is_convex():
 # if our curve gauge deposits aren't tokenized (older pools), we can't as easily do some tests and we skip them
 @pytest.fixture(scope="session")
 def gauge_is_not_tokenized():
-    gauge_is_not_tokenized = False
+    gauge_is_not_tokenized = True
     yield gauge_is_not_tokenized
 
 
@@ -188,7 +186,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 48
+    hours_to_sleep = 12
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time

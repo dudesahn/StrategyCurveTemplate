@@ -167,7 +167,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 }
 
-contract StrategyCurve3Crypto is StrategyCurveBase {
+contract StrategyCurveCompound is StrategyCurveBase {
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -178,11 +178,14 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
 
     // we use these to deposit to our curve pool
+    address public targetStable;
     address internal constant uniswapv3 =
         0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    IERC20 internal constant wbtc =
-        IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
-    uint24 public uniWbtcFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
+    IERC20 internal constant usdc =
+        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    IERC20 internal constant dai =
+        IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+    uint24 public uniStableFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -217,10 +220,14 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
         stratName = _name;
 
         // these are our approvals and path specific to this contract
-        wbtc.approve(address(curve), type(uint256).max);
+        dai.approve(address(curve), type(uint256).max);
+        usdc.approve(address(curve), type(uint256).max);
+
+        // start with usdt
+        targetStable = address(dai);
 
         // set our uniswap pool fees
-        uniWbtcFee = 500;
+        uniStableFee = 500;
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -255,10 +262,13 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
         // do this even if we don't have any CRV, in case we have WETH
         _sell(_crvBalance);
 
+        // check for balances of tokens to deposit
+        uint256 _daiBalance = dai.balanceOf(address(this));
+        uint256 _usdcBalance = usdc.balanceOf(address(this));
+
         // deposit our balance to Curve if we have any
-        uint256 _wbtcBalance = wbtc.balanceOf(address(this));
-        if (_wbtcBalance > 0) {
-            curve.add_liquidity([0, _wbtcBalance, 0], 0);
+        if (_daiBalance > 0 || _usdcBalance > 0) {
+            curve.add_liquidity([_daiBalance, _usdcBalance], 0);
         }
 
         // debtOustanding will only be > 0 in the event of revoking or if we need to rebalance from a withdrawal or lowering the debtRatio
@@ -319,8 +329,8 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
                 IUniV3.ExactInputParams(
                     abi.encodePacked(
                         address(weth),
-                        uint24(uniWbtcFee),
-                        address(wbtc)
+                        uint24(uniStableFee),
+                        address(targetStable)
                     ),
                     address(this),
                     block.timestamp,
@@ -393,7 +403,18 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
 
-    ///@notice Credit threshold is in want token, and will trigger a harvest if strategy credit is above this amount.
+    /// @notice Set optimal token to sell harvested funds for depositing to Curve.
+    function setOptimal(uint256 _optimal) external onlyVaultManagers {
+        if (_optimal == 0) {
+            targetStable = address(dai);
+        } else if (_optimal == 1) {
+            targetStable = address(usdc);
+        } else {
+            revert("incorrect token");
+        }
+    }
+
+    /// @notice Credit threshold is in want token, and will trigger a harvest if strategy credit is above this amount.
     function setCreditThreshold(uint256 _creditThreshold)
         external
         onlyVaultManagers
@@ -402,7 +423,7 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
     }
 
     /// @notice Set the fee pool we'd like to swap through on UniV3 (1% = 10_000)
-    function setUniFees(uint24 _wbtcFee) external onlyVaultManagers {
-        uniWbtcFee = _wbtcFee;
+    function setUniFees(uint24 _stableFee) external onlyVaultManagers {
+        uniStableFee = _stableFee;
     }
 }
