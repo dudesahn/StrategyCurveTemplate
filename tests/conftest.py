@@ -40,17 +40,16 @@ def tests_using_tenderly():
 chain_used = 1
 
 # put our pool's convex pid here
-# final tests: IB, Aave
 @pytest.fixture(scope="session")
 def pid():
-    pid = 24  # IB 29, Aave 24
+    pid = 29  # IB 29, Aave 24
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 40_000e18
+    amount = 900_000e18
     yield amount
 
 
@@ -59,7 +58,7 @@ def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
     whale = accounts.at(
-        "0x03403154afc09Ce8e44C3B185C82C6aD5f86b9ab",
+        "0x2D2421fF1b3b35e1ca8A20eb89Fb79803b304c01",
         force=True,  # IB 0x2D2421fF1b3b35e1ca8A20eb89Fb79803b304c01 holds >1.9m
     )  # 0x03403154afc09Ce8e44C3B185C82C6aD5f86b9ab for Aave, holds 80k
     if token.balanceOf(whale) < 2 * amount:
@@ -72,7 +71,7 @@ def whale(accounts, amount, token):
 # use this if your vault is already deployed
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x39CAF13a104FF567f71fd2A4c68C026FDB6E740B"
+    vault_address = "0x27b7b1ad7288079A66d12350c828D3C00A6F07d7"
     # Iron Bank 0x27b7b1ad7288079A66d12350c828D3C00A6F07d7
     # Aave 0x39CAF13a104FF567f71fd2A4c68C026FDB6E740B
     yield vault_address
@@ -81,7 +80,7 @@ def vault_address():
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyConvexAave"
+    strategy_name = "StrategyCurveIronBank"
     yield strategy_name
 
 
@@ -102,7 +101,7 @@ def rewards_token():  # OGN 0x8207c1FfC5B6804F6024322CcF34F29c3541Ae26, SPELL 0x
 # curve deposit pool for old pools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0xDeBF20617708857ebe4F679508E7b7863a8A8EeE"
+    old_pool = ZERO_ADDRESS
     # IB 0x2dded6Da1BF5DBdF597C45fcFaa3194e53EcfeAF
     # Aave 0xDeBF20617708857ebe4F679508E7b7863a8A8EeE
     yield old_pool
