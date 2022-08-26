@@ -130,12 +130,15 @@ def test_donation():
 @pytest.fixture(scope="session")
 def rewards_whale(accounts):
     # SNX whale: 0x8D6F396D210d385033b348bCae9e4f9Ea4e045bD, >600k SNX
+    # SPELL whale: 0x46f80018211D5cBBc988e853A8683501FCA4ee9b, >10b SPELL
     yield accounts.at("0x8D6F396D210d385033b348bCae9e4f9Ea4e045bD", force=True)
 
 
 @pytest.fixture(scope="session")
 def rewards_amount():
     rewards_amount = 50_000e18
+    # SNX 50_000e18
+    # SPELL 1_000_000e18
     yield rewards_amount
 
 
