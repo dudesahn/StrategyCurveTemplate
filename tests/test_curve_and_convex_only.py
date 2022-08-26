@@ -111,7 +111,7 @@ def test_update_to_zero_then_back(
 
     # Display estimated APR
     print(
-        "\nEstimated DAI APR (Rewards On): ",
+        "\nEstimated APR (Rewards On): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -152,7 +152,7 @@ def test_update_to_zero_then_back(
 
     # Display estimated APR
     print(
-        "\nEstimated DAI APR (Rewards Off): ",
+        "\nEstimated APR (Rewards Off): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -189,7 +189,7 @@ def test_update_to_zero_then_back(
 
     # Display estimated APR
     print(
-        "\nEstimated DAI APR (Rewards Back On, extra rewards tokens): ",
+        "\nEstimated APR (Rewards Back On, extra rewards tokens): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -321,7 +321,7 @@ def test_update_from_zero_to_off(
 
     # Display estimated APR
     print(
-        "\nEstimated DAI APR (Rewards On): ",
+        "\nEstimated APR (Rewards On): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -362,7 +362,7 @@ def test_update_from_zero_to_off(
 
     # Display estimated APR
     print(
-        "\nEstimated DAI APR (Rewards Off): ",
+        "\nEstimated APR (Rewards Off): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -395,7 +395,7 @@ def test_update_from_zero_to_off(
 
     # Display estimated APR
     print(
-        "\nEstimated DAI APR (Rewards Off Still): ",
+        "\nEstimated APR (Rewards Off Still): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -508,7 +508,7 @@ def test_change_rewards(
 
     # Display estimated APR
     print(
-        "\nEstimated DAI APR (Rewards On): ",
+        "\nEstimated APR (Rewards On): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -748,10 +748,6 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-
-    # can't set to 4
-    with brownie.reverts():
-        strategy.setOptimal(4, {"from": gov})
 
     # take 0% of our CRV to the voter
     if is_convex:
