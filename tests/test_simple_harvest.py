@@ -144,7 +144,7 @@ def test_simple_harvest(
             )
             print("CVX harvest info:", tx.events["Harvested"])
             assert tx.events["Harvested"]["profit"] > 0
-        
+
         # end here if no profit, no reason to test USDC and USDT
         return
 

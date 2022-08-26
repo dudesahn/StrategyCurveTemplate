@@ -31,6 +31,8 @@ def test_update_to_zero_then_back(
     is_slippery,
     rewards_template,
     sushi_router,
+    rewards_amount,
+    rewards_whale,
 ):
     # skip this test if we don't use rewards in this template
     if not rewards_template:
@@ -176,6 +178,7 @@ def test_update_to_zero_then_back(
     chain.mine(1)
 
     # harvest with our new rewards token attached
+    newStrategy.setDoHealthCheck(False, {"from": gov})
     newStrategy.harvest({"from": gov})
 
     # confirm that we are selling our rewards token
@@ -186,13 +189,14 @@ def test_update_to_zero_then_back(
 
     # Display estimated APR
     print(
-        "\nEstimated APR (Rewards Back On, extra rewards tokens): ",
+        "\nEstimated DAI APR (Rewards Back On, extra rewards tokens): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
         ),
     )
 
+    # sleep so we free locked profit
     chain.sleep(sleep_time)
     chain.mine(1)
 
@@ -317,7 +321,7 @@ def test_update_from_zero_to_off(
 
     # Display estimated APR
     print(
-        "\nEstimated APR (Rewards On): ",
+        "\nEstimated DAI APR (Rewards On): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -358,7 +362,7 @@ def test_update_from_zero_to_off(
 
     # Display estimated APR
     print(
-        "\nEstimated APR (Rewards Off): ",
+        "\nEstimated DAI APR (Rewards Off): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -391,7 +395,7 @@ def test_update_from_zero_to_off(
 
     # Display estimated APR
     print(
-        "\nEstimated APR (Rewards Off Still): ",
+        "\nEstimated DAI APR (Rewards Off Still): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -504,7 +508,7 @@ def test_change_rewards(
 
     # Display estimated APR
     print(
-        "\nEstimated APR (Rewards On): ",
+        "\nEstimated DAI APR (Rewards On): ",
         "{:.2%}".format(
             ((new_assets_dai - old_assets_dai) * (365 * (86400 / sleep_time)))
             / (newStrategy.estimatedTotalAssets())
@@ -584,8 +588,6 @@ def test_check_rewards(
             proxy.claimRewards(gauge, rewards_token, {"from": strategy})
             assert rewards_token.balanceOf(strategy) > 0
 
-        chain.sleep(sleep_time)
-        chain.mine(1)
         tx = strategy.harvest({"from": gov})
         normal_profits = tx.events["Harvested"]["profit"]
         print("Normal Profit:", normal_profits / 1e18)
@@ -710,7 +712,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit DAI (rewards off):", tx.events["Harvested"]["profit"] / 1e18)
 
     # set our optimal to USDC without rewards on
     strategy.setOptimal(1, {"from": gov})
@@ -718,7 +721,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit USDC (rewards off):", tx.events["Harvested"]["profit"] / 1e18)
 
     # set our optimal to USDT without rewards on
     strategy.setOptimal(2, {"from": gov})
@@ -726,7 +730,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit USDT (rewards off):", tx.events["Harvested"]["profit"] / 1e18)
 
     # we do this twice to hit both branches of the if statement
     if is_convex:
@@ -742,7 +747,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit DAI (rewards on):", tx.events["Harvested"]["profit"] / 1e18)
 
     # set our optimal to USDC with rewards on
     strategy.setOptimal(1, {"from": gov})
@@ -750,7 +756,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit USDC (rewards on):", tx.events["Harvested"]["profit"] / 1e18)
 
     # set our optimal to USDT with rewards on
     strategy.setOptimal(2, {"from": gov})
@@ -758,7 +765,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit USDT (rewards on):", tx.events["Harvested"]["profit"] / 1e18)
 
     # take 100% of our CRV to the voter
     if is_convex:
@@ -785,7 +793,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit DAI (rewards off):", tx.events["Harvested"]["profit"] / 1e18)
 
     # set our optimal to USDC without rewards on
     strategy.setOptimal(1, {"from": gov})
@@ -793,7 +802,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit USDC (rewards off):", tx.events["Harvested"]["profit"] / 1e18)
 
     # set our optimal to USDT without rewards on
     strategy.setOptimal(2, {"from": gov})
@@ -801,7 +811,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit USDT (rewards off):", tx.events["Harvested"]["profit"] / 1e18)
 
     # we do this twice to hit both branches of the if statement
     if is_convex:
@@ -825,7 +836,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit DAI (rewards on):", tx.events["Harvested"]["profit"] / 1e18)
 
     # set our optimal to USDT with rewards on
     strategy.setOptimal(2, {"from": gov})
@@ -833,7 +845,8 @@ def test_more_rewards_stuff(
     # sleep to get some profit
     chain.sleep(sleep_time)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit USDC (rewards on):", tx.events["Harvested"]["profit"] / 1e18)
 
     # sleep to get some profit
     chain.sleep(sleep_time)
@@ -850,4 +863,5 @@ def test_more_rewards_stuff(
         strategy.setKeepCRV(0, {"from": gov})
     chain.sleep(1)
     chain.mine(1)
-    strategy.harvest({"from": gov})
+    tx = strategy.harvest({"from": gov})
+    print("Harvest Profit USDT (rewards on):", tx.events["Harvested"]["profit"] / 1e18)
