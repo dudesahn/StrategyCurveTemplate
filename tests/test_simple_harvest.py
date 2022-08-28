@@ -15,13 +15,13 @@ def test_simple_harvest(
     strategist_ms,
     gauge,
     voter,
+    rewardsContract,
     amount,
     sleep_time,
     is_slippery,
     no_profit,
     is_convex,
     crv,
-    rewardsContract,
     accounts,
 ):
     ## deposit to the vault after approving
@@ -39,7 +39,6 @@ def test_simple_harvest(
         stakingBeforeHarvest = strategy.stakedBalance()
 
     # harvest, store asset amount
-    strategy.setDoHealthCheck(False, {"from": gov})
     tx = strategy.harvest({"from": gov})
     print("Harvest info:", tx.events["Harvested"])
     chain.sleep(1)
@@ -48,7 +47,7 @@ def test_simple_harvest(
     assert old_assets > 0
     assert token.balanceOf(strategy) == 0
     assert strategy.estimatedTotalAssets() > 0
-    print("Assets after first harvest: ", old_assets / 1e18)
+    print("Starting Assets: ", old_assets / 1e18)
 
     # try and include custom logic here to check that funds are in the staking contract (if needed)
     if is_convex:
@@ -103,7 +102,7 @@ def test_simple_harvest(
 
         # Display estimated APR
         print(
-            "\nEstimated APR: ",
+            "\nEstimated Simulated CRV APR: ",
             "{:.2%}".format(
                 ((new_assets - old_assets) * (365 * 86400 / sleep_time))
                 / (strategy.estimatedTotalAssets())
@@ -134,7 +133,7 @@ def test_simple_harvest(
 
             # Display estimated APR
             print(
-                "\nEstimated APR: ",
+                "\nEstimated Simulated CVX APR: ",
                 "{:.2%}".format(
                     ((new_assets - old_assets) * (365 * 86400 / sleep_time))
                     / (strategy.estimatedTotalAssets())
@@ -142,6 +141,9 @@ def test_simple_harvest(
             )
             print("CVX harvest info:", tx.events["Harvested"])
             assert tx.events["Harvested"]["profit"] > 0
+
+        # end here if no profit, no reason to test USDC and USDT
+        return
 
     # simulate a day of waiting for share price to bump back up
     chain.sleep(86400)
