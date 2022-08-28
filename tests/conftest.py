@@ -138,14 +138,14 @@ def is_clonable():
     yield is_clonable
 
 
-# whether or not a strategy can possibly have rewards, even if they are zero
+# whether or not a strategy has ever had rewards, even if they are zero currently. essentially checking if the infra is there for rewards.
 @pytest.fixture(scope="session")
 def rewards_template():
     rewards_template = False
     yield rewards_template
 
 
-# this is whether our pool currently has extra reward emissions
+# this is whether our pool currently has extra reward emissions (SNX, SPELL, etc)
 @pytest.fixture(scope="session")
 def has_rewards():
     has_rewards = False
