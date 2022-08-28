@@ -43,14 +43,14 @@ chain_used = 1
 # put our pool's convex pid here
 @pytest.fixture(scope="session")
 def pid():
-    pid = 8  # 6 renBTC , 8 HBTC
+    pid = 6  # 6 renBTC , 8 HBTC
     yield pid
 
 
 # this is the amount of funds we have our whale deposit. adjust this as needed based on their wallet balance
 @pytest.fixture(scope="session")
 def amount():
-    amount = 1e18  # 5 renBTC , 1 HBTC
+    amount = 5e18  # 5 renBTC , 1 HBTC
     yield amount
 
 
@@ -59,7 +59,7 @@ def whale(accounts, amount, token):
     # Totally in it for the tech
     # Update this with a large holder of your want token (the largest EOA holder of LP)
     # 0x647481c033A4A2E816175cE115a0804adf793891 renBTC , HBTC 0x7a7A599D2384ed203cFEA49721628aA851E0DA16
-    whale = accounts.at("0x7a7A599D2384ed203cFEA49721628aA851E0DA16", force=True)
+    whale = accounts.at("0x647481c033A4A2E816175cE115a0804adf793891", force=True)
     if token.balanceOf(whale) < 2 * amount:
         raise ValueError(
             "Our whale needs more funds. Find another whale or reduce your amount variable."
@@ -70,7 +70,7 @@ def whale(accounts, amount, token):
 # set address if already deployed, use ZERO_ADDRESS if not
 @pytest.fixture(scope="session")
 def vault_address():
-    vault_address = "0x625b7DF2fa8aBe21B0A976736CDa4775523aeD1E"
+    vault_address = "0x7047F90229a057C13BF847C0744D646CFb6c9E1A"
     # renBTC 0x7047F90229a057C13BF847C0744D646CFb6c9E1A
     # HBTC 0x625b7DF2fa8aBe21B0A976736CDa4775523aeD1E
     yield vault_address
@@ -79,7 +79,7 @@ def vault_address():
 # curve deposit pool for old pools, set to ZERO_ADDRESS otherwise
 @pytest.fixture(scope="session")
 def old_pool():
-    old_pool = "0x4CA9b3063Ec5866A4B82E437059D2C43d1be596F"
+    old_pool = "0x93054188d876f558f4a66B2EF1d97d16eDf0895B"
     # renBTC 0x93054188d876f558f4a66B2EF1d97d16eDf0895B
     # HBTC 0x4CA9b3063Ec5866A4B82E437059D2C43d1be596F
     yield old_pool
@@ -88,7 +88,7 @@ def old_pool():
 # this is the name we want to give our strategy
 @pytest.fixture(scope="session")
 def strategy_name():
-    strategy_name = "StrategyCurveHBTC"
+    strategy_name = "StrategyCurverenBTC"
     yield strategy_name
 
 
@@ -143,14 +143,14 @@ def is_clonable():
     yield is_clonable
 
 
-# whether or not a strategy can possibly have rewards, even if they are zero
+# whether or not a strategy has ever had rewards, even if they are zero currently. essentially checking if the infra is there for rewards.
 @pytest.fixture(scope="session")
 def rewards_template():
     rewards_template = False
     yield rewards_template
 
 
-# this is whether our pool currently has extra reward emissions
+# this is whether our pool currently has extra reward emissions (SNX, SPELL, etc)
 @pytest.fixture(scope="session")
 def has_rewards():
     has_rewards = False
@@ -195,7 +195,7 @@ def sleep_time():
     hour = 3600
 
     # change this one right here
-    hours_to_sleep = 6  # 6 HBTC, 48 renBTC
+    hours_to_sleep = 48  # 6 HBTC, 48 renBTC
 
     sleep_time = hour * hours_to_sleep
     yield sleep_time
