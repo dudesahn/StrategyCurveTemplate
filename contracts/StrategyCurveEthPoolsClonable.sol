@@ -324,8 +324,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
         // claim and sell our rewards if we have them
         if (hasRewards) {
             proxy.claimRewards(gauge, address(rewardsToken));
-            uint256 _rewardsBalance =
-                IERC20(rewardsToken).balanceOf(address(this));
+            uint256 _rewardsBalance = rewardsToken.balanceOf(address(this));
             if (_rewardsBalance > 0) {
                 _sellRewards(_rewardsBalance);
             }
@@ -384,7 +383,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
         crv.safeTransfer(_newStrategy, crv.balanceOf(address(this)));
     }
 
-    // Sells our harvested CRV into the selected output, then WETH -> stables on UniV3
+    // Sells our harvested CRV into the selected output, then unwrap WETH
     function _sell(uint256 _crvAmount) internal {
         if (_crvAmount > 1e17) {
             // don't want to swap dust or we might revert
