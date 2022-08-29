@@ -170,7 +170,7 @@ contract StrategyCurvestETH is StrategyCurveBase {
     // these will likely change across different wants.
 
     // Curve stuff
-    ICurveFi public curve; // Curve Pool, this is our pool specific to this vault
+    ICurveFi public curve; ///@notice Curve Pool, this is our pool specific to this vault
 
     ICurveFi internal constant crveth =
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
@@ -243,8 +243,7 @@ contract StrategyCurvestETH is StrategyCurveBase {
         // claim and sell our rewards if we have them
         if (hasRewards) {
             proxy.claimRewards(gauge, address(rewardsToken));
-            uint256 _rewardsBalance =
-                IERC20(rewardsToken).balanceOf(address(this));
+            uint256 _rewardsBalance = rewardsToken.balanceOf(address(this));
             if (_rewardsBalance > 0) {
                 _sellRewards(_rewardsBalance);
             }
