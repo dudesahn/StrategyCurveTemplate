@@ -178,7 +178,7 @@ contract StrategyCurveCompound is StrategyCurveBase {
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
 
     // we use these to deposit to our curve pool
-    address public targetStable;
+    address public targetStable; ///@notice This is the stablecoin we are using to take profits and deposit into 3Crv.
     address internal constant uniswapv3 =
         0xE592427A0AEce92De3Edee1F18E0157C05861564;
     IERC20 internal constant usdc =
@@ -315,7 +315,7 @@ contract StrategyCurveCompound is StrategyCurveBase {
         crv.safeTransfer(_newStrategy, crv.balanceOf(address(this)));
     }
 
-    // Sells our harvested CRV into ETH then WBTC
+    // Sells our harvested CRV into ETH then stables
     function _sell(uint256 _crvAmount) internal {
         if (_crvAmount > 1e17) {
             // don't want to swap dust or we might revert
