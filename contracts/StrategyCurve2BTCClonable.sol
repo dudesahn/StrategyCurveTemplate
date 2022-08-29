@@ -467,7 +467,7 @@ contract StrategyCurve2BTCClonable is StrategyCurveBase {
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
 
-    ///@notice Credit threshold is in want token, and will trigger a harvest if strategy credit is above this amount.
+    /// @notice Credit threshold is in want token, and will trigger a harvest if strategy credit is above this amount.
     function setCreditThreshold(uint256 _creditThreshold)
         external
         onlyVaultManagers
