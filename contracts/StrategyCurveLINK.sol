@@ -307,7 +307,7 @@ contract StrategyCurveLINK is StrategyCurveBase {
         crv.safeTransfer(_newStrategy, crv.balanceOf(address(this)));
     }
 
-    // Sells our harvested CRV into ETH then WBTC
+    // Sells our harvested CRV into ETH then LINK
     function _sell(uint256 _crvAmount) internal {
         if (_crvAmount > 1e17) {
             // don't want to swap dust or we might revert
