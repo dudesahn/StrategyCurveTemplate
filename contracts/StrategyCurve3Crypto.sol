@@ -177,13 +177,6 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
     ICurveFi internal constant crveth =
         ICurveFi(0x8301AE4fc9c624d1D396cbDAa1ed877821D7C511); // use curve's new CRV-ETH crypto pool to sell our CRV
 
-    // we use these to deposit to our curve pool
-    address internal constant uniswapv3 =
-        0xE592427A0AEce92De3Edee1F18E0157C05861564;
-    IERC20 internal constant wbtc =
-        IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
-    uint24 public uniWbtcFee; // this is equal to 0.05%, can change this later if a different path becomes more optimal
-
     /* ========== CONSTRUCTOR ========== */
 
     constructor(
@@ -377,10 +370,5 @@ contract StrategyCurve3Crypto is StrategyCurveBase {
         onlyVaultManagers
     {
         creditThreshold = _creditThreshold;
-    }
-
-    /// @notice Set the fee pool we'd like to swap through on UniV3 (1% = 10_000)
-    function setUniFees(uint24 _wbtcFee) external onlyVaultManagers {
-        uniWbtcFee = _wbtcFee;
     }
 }
