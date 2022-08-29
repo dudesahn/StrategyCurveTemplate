@@ -19,10 +19,6 @@ interface IBaseFee {
     function isCurrentBaseFeeAcceptable() external view returns (bool);
 }
 
-interface IWeth {
-    function withdraw(uint256 wad) external;
-}
-
 interface IUniV3 {
     struct ExactInputParams {
         bytes path;
@@ -211,7 +207,7 @@ contract StrategyCurveUsdcPairsClonable is StrategyCurveBase {
         address _gauge,
         address _curvePool,
         string memory _name
-    ) external returns (address payable newStrategy) {
+    ) external returns (address newStrategy) {
         require(isOriginal);
         // Copied from https://github.com/optionality/clone-factory/blob/master/contracts/CloneFactory.sol
         bytes20 addressBytes = bytes20(address(this));
@@ -379,7 +375,7 @@ contract StrategyCurveUsdcPairsClonable is StrategyCurveBase {
         crv.safeTransfer(_newStrategy, crv.balanceOf(address(this)));
     }
 
-    // Sells our harvested CRV into ETH
+    // Sells our harvested CRV into ETH then USDC
     function _sell(uint256 _crvAmount) internal {
         if (_crvAmount > 1e17) {
             // don't want to swap dust or we might revert
