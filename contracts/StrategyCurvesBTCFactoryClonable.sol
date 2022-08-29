@@ -345,8 +345,7 @@ contract StrategyCurvesBTCFactoryClonable is StrategyCurveBase {
         // claim and sell our rewards if we have them
         if (hasRewards) {
             proxy.claimRewards(gauge, address(rewardsToken));
-            uint256 _rewardsBalance =
-                IERC20(rewardsToken).balanceOf(address(this));
+            uint256 _rewardsBalance = rewardsToken.balanceOf(address(this));
             if (_rewardsBalance > 0) {
                 _sellRewards(_rewardsBalance);
             }
@@ -405,7 +404,7 @@ contract StrategyCurvesBTCFactoryClonable is StrategyCurveBase {
         crv.safeTransfer(_newStrategy, crv.balanceOf(address(this)));
     }
 
-    // Sells our harvested CRV into ETH
+    // Sells our harvested CRV into ETH then WBTC
     function _sell(uint256 _crvAmount) internal {
         if (_crvAmount > 1e17) {
             // don't want to swap dust or we might revert
@@ -504,7 +503,7 @@ contract StrategyCurvesBTCFactoryClonable is StrategyCurveBase {
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
 
-    // Use to add, update or remove rewards
+    /// @notice Use to add, update or remove rewards
     function updateRewards(
         bool _hasRewards,
         address _rewardsToken,
@@ -532,7 +531,7 @@ contract StrategyCurvesBTCFactoryClonable is StrategyCurveBase {
         }
     }
 
-    ///@notice Credit threshold is in want token, and will trigger a harvest if strategy credit is above this amount.
+    /// @notice Credit threshold is in want token, and will trigger a harvest if strategy credit is above this amount.
     function setCreditThreshold(uint256 _creditThreshold)
         external
         onlyVaultManagers
