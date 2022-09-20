@@ -19,10 +19,6 @@ interface IBaseFee {
     function isCurrentBaseFeeAcceptable() external view returns (bool);
 }
 
-interface IWeth {
-    function withdraw(uint256 wad) external;
-}
-
 interface IUniV3 {
     struct ExactInputParams {
         bytes path;
