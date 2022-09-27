@@ -177,7 +177,6 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
     // rewards token info. we can have more than 1 reward token but this is rare, so we don't include this in the template
     IERC20 public rewardsToken;
     bool public hasRewards;
-    address[] internal rewardsPath;
 
     // check for cloning
     bool internal isOriginal = true;
@@ -499,7 +498,6 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
             // approve, setup our path, and turn on rewards
             rewardsToken = IERC20(_rewardsToken);
             rewardsToken.approve(uniswap, type(uint256).max);
-            rewardsPath = [address(rewardsToken), address(weth)];
             hasRewards = true;
         }
     }
