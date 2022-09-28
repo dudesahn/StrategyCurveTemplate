@@ -3,9 +3,9 @@ from brownie import Contract
 from brownie import config
 import math
 
-# test migrating a strategy
+
 def test_migration(
-    contract_name,
+    StrategyCurveEthPoolsClonable,
     gov,
     token,
     vault,
@@ -14,64 +14,49 @@ def test_migration(
     whale,
     strategy,
     chain,
-    proxy,
+    rewards_token,
     strategist_ms,
     healthCheck,
-    pid,
     amount,
     pool,
     strategy_name,
-    sleep_time,
-    is_convex,
     gauge,
 ):
 
     ## deposit to the vault after approving
-    startingWhale = token.balanceOf(whale)
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
     vault.deposit(amount, {"from": whale})
     chain.sleep(1)
     strategy.harvest({"from": gov})
     chain.sleep(1)
 
-    if is_convex:
-        # make sure to include all constructor parameters needed here
-        new_strategy = strategist.deploy(
-            contract_name,
-            vault,
-            pid,
-            pool,
-            strategy_name,
-        )
-
-        # can we harvest an unactivated strategy? should be no
-        tx = new_strategy.harvestTrigger(0, {"from": gov})
-        print("\nShould we harvest? Should be False.", tx)
-        assert tx == False
-    else:
-        # make sure to include all constructor parameters needed here
-        new_strategy = strategist.deploy(
-            contract_name,
-            vault,
-            gauge,
-            pool,
-            strategy_name,
-        )
-        # harvestTrigger check for isActive() doesn't work if we have multiple curve strategies for the same LP
-
+    # deploy our new strategy
+    new_strategy = strategist.deploy(
+        StrategyCurveEthPoolsClonable,
+        vault,
+        gauge,
+        pool,
+        strategy_name,
+    )
+    strategy.updateRewards(True, rewards_token, {"from": gov})
+    strategy.setFeeCRVETH(3000, {"from": gov})
+    strategy.setFeeOPETH(3000, {"from": gov})
     total_old = strategy.estimatedTotalAssets()
 
-    # sleep to collect earnings
-    chain.sleep(sleep_time)
+    # can we harvest an unactivated strategy? should be no
+    # under our new method of using min and maxDelay, this no longer matters or works
+    # tx = new_strategy.harvestTrigger(0, {"from": gov})
+    # print("\nShould we harvest? Should be False.", tx)
+    # assert tx == False
+
+    # simulate 1 day of earnings
+    chain.sleep(86400)
+    chain.mine(1)
 
     # migrate our old strategy
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
     new_strategy.setHealthCheck(healthCheck, {"from": gov})
     new_strategy.setDoHealthCheck(True, {"from": gov})
-
-    # if a curve strat, whitelist on our strategy proxy
-    if not is_convex:
-        proxy.approveStrategy(strategy.gauge(), new_strategy, {"from": gov})
 
     # assert that our old strategy is empty
     updated_total_old = strategy.estimatedTotalAssets()
@@ -90,8 +75,8 @@ def test_migration(
     startingVault = vault.totalAssets()
     print("\nVault starting assets with new strategy: ", startingVault)
 
-    # simulate earnings
-    chain.sleep(sleep_time)
+    # simulate one day of earnings
+    chain.sleep(86400)
     chain.mine(1)
 
     # Test out our migrated strategy, confirm we're making a profit
