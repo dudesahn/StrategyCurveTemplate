@@ -409,47 +409,6 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
     }
 
     /* ========== KEEP3RS ========== */
-    // use this to determine when to harvest
-    function harvestTrigger(uint256 callCostinEth)
-        public
-        view
-        override
-        returns (bool)
-    {
-        // Should not trigger if strategy is not active (no assets and no debtRatio). This means we don't need to adjust keeper job.
-        if (!isActive()) {
-            return false;
-        }
-
-        StrategyParams memory params = vault.strategies(address(this));
-        // harvest no matter what once we reach our maxDelay
-        if (block.timestamp.sub(params.lastReport) > maxReportDelay) {
-            return true;
-        }
-
-        // check if the base fee gas price is higher than we allow. if it is, block harvests.
-        if (!isBaseFeeAcceptable()) {
-            return false;
-        }
-
-        // trigger if we want to manually harvest, but only if our gas price is acceptable
-        if (forceHarvestTriggerOnce) {
-            return true;
-        }
-
-        // harvest if we hit our minDelay, but only if our gas price is acceptable
-        if (block.timestamp.sub(params.lastReport) > minReportDelay) {
-            return true;
-        }
-
-        // harvest our credit if it's above our threshold
-        if (vault.creditAvailable() > creditThreshold) {
-            return true;
-        }
-
-        // otherwise, we don't harvest
-        return false;
-    }
 
     // convert our keeper's eth cost into want, we don't need this anymore since we don't use baseStrategy harvestTrigger
     function ethToWant(uint256 _ethAmount)
@@ -458,14 +417,6 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
         override
         returns (uint256)
     {}
-
-    // check if the current baseFee is below our external target
-    function isBaseFeeAcceptable() internal view returns (bool) {
-        // TODO: Update to Opti value
-        return
-            IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
-                .isCurrentBaseFeeAcceptable();
-    }
 
     // include so our contract plays nicely with ether
     receive() external payable {}
