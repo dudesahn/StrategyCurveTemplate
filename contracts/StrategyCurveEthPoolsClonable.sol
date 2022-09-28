@@ -461,6 +461,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
 
     // check if the current baseFee is below our external target
     function isBaseFeeAcceptable() internal view returns (bool) {
+        // TODO: Update to Opti value
         return
             IBaseFee(0xb5e1CAcB567d98faaDB60a1fD4820720141f064F)
                 .isCurrentBaseFeeAcceptable();
