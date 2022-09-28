@@ -268,7 +268,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
         keepCRV = 1000; // default of 10%
 
         // these are our standard approvals. want = Curve LP token
-        want.approve(address(gauge), type(uint256).max);
+        want.approve(address(_gauge), type(uint256).max);
         crv.approve(address(uniswap), type(uint256).max);
 
         // this is the pool specific to this vault
@@ -403,7 +403,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
                 block.timestamp,
                 _amount,
                 0,
-                2**160-1
+                0
             )
         );
     }
