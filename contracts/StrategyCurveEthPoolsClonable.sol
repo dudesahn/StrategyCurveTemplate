@@ -60,6 +60,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
         IERC20(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
     IERC20 internal constant weth =
         IERC20(0x4200000000000000000000000000000000000006);
+    address public constant mintr = address(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
 
     uint256 public creditThreshold; // amount of credit in underlying tokens that will automatically trigger a harvest
     bool internal forceHarvestTriggerOnce; // only set this to true when we want to trigger our keepers to harvest for us
@@ -304,8 +305,8 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
         uint256 _stakedBal = stakedBalance();
         uint256 _crvBalance = crv.balanceOf(address(this));
         if (_stakedBal > 0) {
-            // TODO: Add mintr interaction
-            // mintr.mint(gauge);
+            // Mintr CRV emissions
+            IMinter(mintr).mint(address(gauge));
             _crvBalance = crv.balanceOf(address(this));
             // if we claimed any CRV, then sell it
             if (_crvBalance > 0) {
