@@ -192,7 +192,7 @@ contract StrategyCurvecvxCRV is StrategyCurveBase {
         curve = ICurveFi(_curvePool);
 
         // need to set our proxy when cloning since it's not a constant
-        proxy = ICurveStrategyProxy(0xA420A63BbEFfbda3B147d0585F1852C358e2C152);
+        proxy = ICurveStrategyProxy(0x4694507Ca1023194eA3Ca4428F99EDEd7Ab2b919);
 
         // set our curve gauge contract
         gauge = _gauge;
