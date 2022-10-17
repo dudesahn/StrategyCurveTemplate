@@ -251,7 +251,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
         minReportDelay = 21 days; // 21 days in seconds
         healthCheck = 0x3d8F58774611676fd196D26149C71a9142C45296; // health.ychad.eth
         creditThreshold = 500 * 1e18;
-        keepCRV = 1000; // default of 10%
+        keepCRV = 0; // default of 0%
 
         // these are our standard approvals. want = Curve LP token
         want.approve(address(_gauge), type(uint256).max);
