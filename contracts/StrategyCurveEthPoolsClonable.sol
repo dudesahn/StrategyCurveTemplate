@@ -40,6 +40,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // Swap stuff
     address internal constant uniswap =
         0xE592427A0AEce92De3Edee1F18E0157C05861564; // we use this to sell our bonus token
+    address baseFeeOracle = 0x46679Ba8ce6473a9E0867c52b5A50ff97579740E;
 
     IERC20 internal constant crv =
         IERC20(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
@@ -413,6 +414,11 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
             return true;
         }
 
+        // check if the base fee gas price is higher than we allow. if it is, block harvests.
+        if (!isBaseFeeAcceptable()) {
+            return false;
+        }
+
         // trigger if we want to manually harvest, but only if our gas price is acceptable
         if (forceHarvestTriggerOnce) {
             return true;
@@ -430,6 +436,17 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
 
         // otherwise, we don't harvest
         return false;
+    }
+
+    // check if the current baseFee is below our external target
+    function isBaseFeeAcceptable() internal view returns (bool) {
+        return
+            IBaseFee(baseFeeOracle)
+                .isCurrentBaseFeeAcceptable();
+    }
+
+    function setBaseFeeOracle(address _newBaseFeeOracle) external onlyVaultManagers {
+        baseFeeOracle = _newBaseFeeOracle;
     }
 
     // convert our keeper's eth cost into want, we don't need this anymore since we don't use baseStrategy harvestTrigger
