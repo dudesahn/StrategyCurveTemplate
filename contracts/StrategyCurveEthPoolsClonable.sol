@@ -158,9 +158,6 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
     uint24 public feeCRVETH;
     uint24 public feeOPETH;
 
-    // ICurveFi internal constant crveth =
-    //     ICurveFi(0xE592427A0AEce92De3Edee1F18E0157C05861564); // use curve's new CRV-ETH crypto pool to sell our CRV
-
     // rewards token info. we can have more than 1 reward token but this is rare, so we don't include this in the template
     IERC20 public rewardsToken;
     bool public hasRewards;
@@ -311,7 +308,6 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
             gauge.claim_rewards();
             uint256 _rewardsBalance = rewardsToken.balanceOf(address(this));
             if (_rewardsBalance > 0) {
-                // _sellRewards(_rewardsBalance);
                 _sellTokenToWethUniV3(address(rewardsToken), feeOPETH, _rewardsBalance);
             }
         }
@@ -369,7 +365,6 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
     function _sell(uint256 _crvAmount) internal {
         if (_crvAmount > 1e17) {
             // don't want to swap dust or we might revert
-            // crveth.exchange(1, 0, _crvAmount, 0, false);
             _sellTokenToWethUniV3(address(crv), feeCRVETH, _crvAmount);
         }
 
