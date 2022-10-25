@@ -40,7 +40,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // Swap stuff
     address internal constant uniswap =
         0xE592427A0AEce92De3Edee1F18E0157C05861564; // we use this to sell our bonus token
-    address baseFeeOracle = 0x46679Ba8ce6473a9E0867c52b5A50ff97579740E;
+    address public baseFeeOracle = 0x46679Ba8ce6473a9E0867c52b5A50ff97579740E;
 
     IERC20 internal constant crv =
         IERC20(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
