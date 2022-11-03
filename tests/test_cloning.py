@@ -14,162 +14,72 @@ def test_cloning(
     rewards,
     chain,
     contract_name,
-    rewardsContract,
-    pid,
     amount,
     pool,
     gauge,
     strategy_name,
-    sleep_time,
-    tests_using_tenderly,
-    is_slippery,
-    no_profit,
-    is_convex,
-    vault_address,
     has_rewards,
     rewards_token,
     is_clonable,
-    proxy,
 ):
 
+    sleep_time = 86_400
     # skip this test if we don't clone
     if not is_clonable:
         return
 
-    # tenderly doesn't work for "with brownie.reverts"
-    if tests_using_tenderly:
-        if is_convex:
-            ## clone our strategy
-            tx = strategy.cloneCurve3CrvRewards(
-                vault,
-                strategist,
-                rewards,
-                keeper,
-                pid,
-                pool,
-                strategy_name,
-                {"from": gov},
-            )
-            newStrategy = contract_name.at(tx.return_value)
-        else:
-            ## clone our strategy
-            tx = strategy.cloneCurveOldEth(
-                vault,
-                strategist,
-                rewards,
-                keeper,
-                gauge,
-                pool,
-                strategy_name,
-                {"from": gov},
-            )
-            newStrategy = contract_name.at(tx.return_value)
-    else:
-        if is_convex:
-            # Shouldn't be able to call initialize again
-            with brownie.reverts():
-                strategy.initialize(
-                    vault,
-                    strategist,
-                    rewards,
-                    keeper,
-                    pid,
-                    pool,
-                    strategy_name,
-                    {"from": gov},
-                )
+    
+    # Shouldn't be able to call initialize again
+    with brownie.reverts():
+        strategy.initialize(
+            vault,
+            strategist,
+            rewards,
+            keeper,
+            gauge,
+            pool,
+            strategy_name,
+            {"from": gov},
+        )
 
-            ## clone our strategy
-            tx = strategy.cloneCurve3CrvRewards(
-                vault,
-                strategist,
-                rewards,
-                keeper,
-                pid,
-                pool,
-                strategy_name,
-                {"from": gov},
-            )
-            newStrategy = contract_name.at(tx.return_value)
+    ## clone our strategy
+    tx = strategy.cloneCurveOldEth(
+        vault,
+        strategist,
+        rewards,
+        keeper,
+        gauge,
+        pool,
+        strategy_name,
+        {"from": gov},
+    )
+    newStrategy = contract_name.at(tx.return_value)
 
-            # Shouldn't be able to call initialize again
-            with brownie.reverts():
-                newStrategy.initialize(
-                    vault,
-                    strategist,
-                    rewards,
-                    keeper,
-                    pid,
-                    pool,
-                    strategy_name,
-                    {"from": gov},
-                )
+    # Shouldn't be able to call initialize again
+    with brownie.reverts():
+        newStrategy.initialize(
+            vault,
+            strategist,
+            rewards,
+            keeper,
+            gauge,
+            pool,
+            strategy_name,
+            {"from": gov},
+        )
 
-            ## shouldn't be able to clone a clone
-            with brownie.reverts():
-                newStrategy.cloneCurve3CrvRewards(
-                    vault,
-                    strategist,
-                    rewards,
-                    keeper,
-                    pid,
-                    pool,
-                    strategy_name,
-                    {"from": gov},
-                )
-
-        else:
-            # Shouldn't be able to call initialize again
-            with brownie.reverts():
-                strategy.initialize(
-                    vault,
-                    strategist,
-                    rewards,
-                    keeper,
-                    gauge,
-                    pool,
-                    strategy_name,
-                    {"from": gov},
-                )
-
-            ## clone our strategy
-            tx = strategy.cloneCurveOldEth(
-                vault,
-                strategist,
-                rewards,
-                keeper,
-                gauge,
-                pool,
-                strategy_name,
-                {"from": gov},
-            )
-            newStrategy = contract_name.at(tx.return_value)
-
-            # Shouldn't be able to call initialize again
-            with brownie.reverts():
-                newStrategy.initialize(
-                    vault,
-                    strategist,
-                    rewards,
-                    keeper,
-                    gauge,
-                    pool,
-                    strategy_name,
-                    {"from": gov},
-                )
-
-            ## shouldn't be able to clone a clone
-            with brownie.reverts():
-                newStrategy.cloneCurveOldEth(
-                    vault,
-                    strategist,
-                    rewards,
-                    keeper,
-                    gauge,
-                    pool,
-                    strategy_name,
-                    {"from": gov},
-                )
+    ## shouldn't be able to clone a clone
+    with brownie.reverts():
+        newStrategy.cloneCurveOldEth(
+            vault,
+            strategist,
+            rewards,
+            keeper,
+            gauge,
+            pool,
+            strategy_name,
+            {"from": gov},
+        )
 
     # revoke and get funds back into vault
     currentDebt = vault.strategies(strategy)["debtRatio"]
@@ -180,8 +90,11 @@ def test_cloning(
 
     # attach our new strategy
     vault.addStrategy(newStrategy, currentDebt, 0, 2 ** 256 - 1, 1_000, {"from": gov})
+    newStrategy.updateRewards(has_rewards, rewards_token, {"from": gov})
+    newStrategy.setFeeCRVETH(3000, {"from": gov})
+    newStrategy.setFeeOPETH(3000, {"from": gov})
 
-    if vault_address == ZERO_ADDRESS:
+    if vault.address == ZERO_ADDRESS:
         assert vault.withdrawalQueue(1) == newStrategy
     else:
         if (
@@ -195,10 +108,7 @@ def test_cloning(
 
     # add rewards token if needed
     if has_rewards:
-        if is_convex:
-            newStrategy.updateRewards(True, 0, {"from": gov})
-        else:
-            newStrategy.updateRewards(True, rewards_token, {"from": gov})
+        newStrategy.updateRewards(True, rewards_token, {"from": gov})
 
     ## deposit to the vault after approving; this is basically just our simple_harvest test
     before_pps = vault.pricePerShare()
@@ -207,8 +117,6 @@ def test_cloning(
     vault.deposit(amount, {"from": whale})
 
     # harvest, store asset amount
-    if not is_convex:  # make sure to update our proxy if a curve strategy
-        proxy.approveStrategy(strategy.gauge(), newStrategy, {"from": gov})
     newStrategy.harvest({"from": gov})
     chain.sleep(1)
     old_assets = vault.totalAssets()
@@ -216,14 +124,6 @@ def test_cloning(
     assert token.balanceOf(newStrategy) == 0
     assert newStrategy.estimatedTotalAssets() > 0
     print("\nStarting Assets: ", old_assets / 1e18)
-
-    # try and include custom logic here to check that funds are in the staking contract (if needed)
-    if is_convex:
-        assert rewardsContract.balanceOf(newStrategy) > 0
-        print("\nAssets Staked: ", rewardsContract.balanceOf(newStrategy) / 1e18)
-    else:
-        assert newStrategy.stakedBalance() > 0
-        print("\nAssets Staked: ", newStrategy.stakedBalance() / 1e18)
 
     # simulate some earnings
     chain.sleep(sleep_time)
@@ -252,11 +152,6 @@ def test_cloning(
 
     # withdraw and confirm we made money, or at least that we have about the same
     vault.withdraw({"from": whale})
-    if is_slippery and no_profit:
-        assert (
-            math.isclose(token.balanceOf(whale), startingWhale, abs_tol=10)
-            or token.balanceOf(whale) >= startingWhale
-        )
-    else:
-        assert token.balanceOf(whale) >= startingWhale
+    
+    assert token.balanceOf(whale) >= startingWhale
     assert vault.pricePerShare() >= before_pps

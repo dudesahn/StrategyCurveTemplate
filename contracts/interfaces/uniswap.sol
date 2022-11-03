@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.6.12;
+pragma solidity ^0.8.15;
 pragma experimental ABIEncoderV2;
 
 interface IUniswapV2Router01 {
@@ -206,4 +206,18 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
         address to,
         uint256 deadline
     ) external;
+}
+
+interface IUniswapV3Router01 {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 deadline;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
+    }
+    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
 }
