@@ -1,30 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0
-pragma solidity 0.6.12;
+pragma solidity ^0.8.15;
 pragma experimental ABIEncoderV2;
 
 // These are the core Yearn libraries
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/math/Math.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "./interfaces/curve.sol";
 import "./interfaces/yearn.sol";
 import {IUniswapV3Router01} from "./interfaces/uniswap.sol";
-import {
-    BaseStrategy,
-    StrategyParams
-} from "@yearnvaults/contracts/BaseStrategy.sol";
-
-interface IBaseFee {
-    function isCurrentBaseFeeAcceptable() external view returns (bool);
-}
+import "@yearnvaults/contracts/BaseStrategy.sol";
 
 interface IWeth {
     function withdraw(uint256 wad) external;
 }
 
 abstract contract StrategyCurveBase is BaseStrategy {
-    using Address for address;
 
     /* ========== STATE VARIABLES ========== */
     // these should stay the same across different wants.
@@ -40,7 +31,6 @@ abstract contract StrategyCurveBase is BaseStrategy {
     // Swap stuff
     address internal constant uniswap =
         0xE592427A0AEce92De3Edee1F18E0157C05861564; // we use this to sell our bonus token
-    address public baseFeeOracle = 0x46679Ba8ce6473a9E0867c52b5A50ff97579740E;
 
     IERC20 internal constant crv =
         IERC20(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
@@ -48,14 +38,11 @@ abstract contract StrategyCurveBase is BaseStrategy {
         IERC20(0x4200000000000000000000000000000000000006);
     IMinter public constant mintr = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
 
-    uint256 public creditThreshold; // amount of credit in underlying tokens that will automatically trigger a harvest
-    bool internal forceHarvestTriggerOnce; // only set this to true when we want to trigger our keepers to harvest for us
-
     string internal stratName;
 
     /* ========== CONSTRUCTOR ========== */
 
-    constructor(address _vault) public BaseStrategy(_vault) {}
+    constructor(address _vault) BaseStrategy(_vault) {}
 
     /* ========== VIEWS ========== */
 
@@ -74,7 +61,7 @@ abstract contract StrategyCurveBase is BaseStrategy {
     }
 
     function estimatedTotalAssets() public view override returns (uint256) {
-        return balanceOfWant().add(stakedBalance());
+        return balanceOfWant() + stakedBalance();
     }
 
     /* ========== MUTATIVE FUNCTIONS ========== */
@@ -101,12 +88,12 @@ abstract contract StrategyCurveBase is BaseStrategy {
             uint256 _stakedBal = stakedBalance();
             if (_stakedBal > 0) {
                 gauge.withdraw(
-                    Math.min(_stakedBal, _amountNeeded.sub(_wantBal))
+                    Math.min(_stakedBal, _amountNeeded - _wantBal)
                 );
             }
             uint256 _withdrawnBal = balanceOfWant();
             _liquidatedAmount = Math.min(_amountNeeded, _withdrawnBal);
-            _loss = _amountNeeded.sub(_liquidatedAmount);
+            _loss = _amountNeeded - _liquidatedAmount;
         } else {
             // we have enough balance to cover the liquidation available
             return (_amountNeeded, 0);
@@ -140,16 +127,10 @@ abstract contract StrategyCurveBase is BaseStrategy {
         keepCRV = _keepCRV;
     }
 
-    // This allows us to manually harvest with our keeper as needed
-    function setForceHarvestTriggerOnce(bool _forceHarvestTriggerOnce)
-        external
-        onlyVaultManagers
-    {
-        forceHarvestTriggerOnce = _forceHarvestTriggerOnce;
-    }
 }
 
 contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
+    using SafeERC20 for IERC20;
     /* ========== STATE VARIABLES ========== */
     // these will likely change across different wants.
 
@@ -172,7 +153,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
         address _gauge,
         address _curvePool,
         string memory _name
-    ) public StrategyCurveBase(_vault) {
+    ) StrategyCurveBase(_vault) {
         _initializeStrat(_gauge, _curvePool, _name);
     }
 
@@ -295,7 +276,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
             if (_crvBalance > 0) {
                 // keep some of our CRV to increase our boost
                 uint256 _sendToVoter =
-                    _crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
+                    _crvBalance * keepCRV / FEE_DENOMINATOR;
                 if (_sendToVoter > 0) {
                     crv.safeTransfer(voter, _sendToVoter);
                 }
@@ -337,16 +318,16 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
 
         // if assets are greater than debt, things are working great!
         if (assets > debt) {
-            _profit = assets.sub(debt);
+            _profit = assets - debt;
             uint256 _wantBal = balanceOfWant();
-            if (_profit.add(_debtPayment) > _wantBal) {
+            if (_profit + _debtPayment > _wantBal) {
                 // this should only be hit following donations to strategy
                 liquidateAllPositions();
             }
         }
         // if assets are less than debt, we are in trouble
         else {
-            _loss = debt.sub(assets);
+            _loss = debt - assets;
         }
 
         // we're done harvesting, so reset our trigger if we used it
@@ -405,7 +386,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
 
         StrategyParams memory params = vault.strategies(address(this));
         // harvest no matter what once we reach our maxDelay
-        if (block.timestamp.sub(params.lastReport) > maxReportDelay) {
+        if (block.timestamp - params.lastReport > maxReportDelay) {
             return true;
         }
 
@@ -420,7 +401,7 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
         }
 
         // harvest if we hit our minDelay, but only if our gas price is acceptable
-        if (block.timestamp.sub(params.lastReport) > minReportDelay) {
+        if (block.timestamp - params.lastReport > minReportDelay) {
             return true;
         }
 
@@ -431,17 +412,6 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
 
         // otherwise, we don't harvest
         return false;
-    }
-
-    // check if the current baseFee is below our external target
-    function isBaseFeeAcceptable() internal view returns (bool) {
-        return
-            IBaseFee(baseFeeOracle)
-                .isCurrentBaseFeeAcceptable();
-    }
-
-    function setBaseFeeOracle(address _newBaseFeeOracle) external onlyVaultManagers {
-        baseFeeOracle = _newBaseFeeOracle;
     }
 
     // convert our keeper's eth cost into want, we don't need this anymore since we don't use baseStrategy harvestTrigger
@@ -458,14 +428,6 @@ contract StrategyCurveEthPoolsClonable is StrategyCurveBase {
     /* ========== SETTERS ========== */
 
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
-
-    ///@notice Credit threshold is in want token, and will trigger a harvest if strategy credit is above this amount.
-    function setCreditThreshold(uint256 _creditThreshold)
-        external
-        onlyVaultManagers
-    {
-        creditThreshold = _creditThreshold;
-    }
 
     ///@notice Use to add, update or remove reward token
     // OP token: 0x4200000000000000000000000000000000000042
